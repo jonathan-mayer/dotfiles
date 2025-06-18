@@ -1,5 +1,5 @@
 README.md
-{{- if .go_bins }}
+{{- if not .go_bins }}
 scripts/auto-update-go.bash
 scripts/setup-auto-update-go.bash
 {{- end }}
