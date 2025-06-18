@@ -1,0 +1,32 @@
+name: Ollama Proxmox
+version: 1.0.0
+schema: v1
+models:
+  - name: qwen2.5-coder:7b-local
+    provider: ollama
+    model: qwen2.5-coder
+    roles:
+      - autocomplete
+      - chat
+      - edit
+      - apply
+      - summarize
+  - name: qwen2.5-coder:3b
+    provider: ollama
+    model: qwen2.5-coder:3b
+    apiBase: https://ai.jmayr.de
+    apiKey: {{ (bitwarden "item" "ai.jmayr.de").login.password }}
+    roles:
+      - autocomplete
+      - chat
+      - edit
+      - apply
+      - summarize
+context:
+  - provider: code
+  - provider: docs
+  - provider: diff
+  - provider: terminal
+  - provider: problems
+  - provider: folder
+  - provider: codebase

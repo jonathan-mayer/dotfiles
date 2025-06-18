@@ -1,7 +1,7 @@
 [user]
     name = {{ .name | quote }}
     email = {{ .email | quote }}
-    signingkey = {{ .chezmoi.homeDir }}/.ssh/id_rsa.pub
+    signingkey = {{ index (glob (print .chezmoi.homeDir "/.ssh/id_*.pub")) 0 }}
 [gpg]
         format = ssh
 [commit]
