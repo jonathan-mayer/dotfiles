@@ -1,7 +1,13 @@
 [user]
-name = {{ .name | quote }}
-email = {{ .email | quote }}
+    name = {{ .name | quote }}
+    email = {{ .email | quote }}
+    signingkey = /home/installadm/.ssh/id_rsa.pub
+[gpg]
+        format = ssh
+[commit]
+        gpgsign = true
 [init]
-defaultBranch = main
+    defaultBranch = main
+	templateDir = /home/installadm/.git-template
 [url "ssh://git@github.com/"]
-insteadOf = https://github.com/
+    insteadOf = https://github.com/

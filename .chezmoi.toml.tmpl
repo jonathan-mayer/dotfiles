@@ -1,10 +1,24 @@
 {{- $name := promptStringOnce . "name" "Full Name" -}}
 {{- $email := promptStringOnce . "email" "Email address" -}}
-{{- $go_bins := promptStringOnce . "go_bins" "Install Go Binaries? (y/n)" -}}
+{{- $github := promptStringOnce . "github" "Github Username" -}}
+
+{{- $go_private := promptStringOnce . "go_private" "Additional GOPRIVATE" -}}
+
+{{- $go_bins := promptBoolOnce . "go_bins" "Install Go Binaries? (y/n)" -}}
+
+{{- $proxy := promptStringOnce . "proxy" "Proxy URL [none]" -}}
+{{- $no_proxy := "" -}}
+{{- if ne $proxy "" -}}
+{{- $no_proxy = promptStringOnce . "no_proxy" "No Proxy" -}}
+{{- end -}}
 
 [data]
     name = {{ $name | quote }}
     email = {{ $email | quote }}
-    go_bins = {{ $go_bins | quote }}
+    go_bins = {{ $go_bins }}
+    proxy = {{ $proxy | quote }}
+    no_proxy = {{$no_proxy | quote }}
+    github = {{$github | quote }}
+    go_private = {{$go_private | quote }}
 [git]
     autoCommit = true

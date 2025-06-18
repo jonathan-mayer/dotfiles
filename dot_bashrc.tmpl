@@ -10,10 +10,33 @@ alias grep='grep --color=auto'
 
 export LC_ALL="en_US.UTF-8"
 
+# enable programmable completion features (you don't need to enable
+# this, if it's already enabled in /etc/bash.bashrc and /etc/profile
+# sources /etc/bash.bashrc).
+if ! shopt -oq posix; then
+    if [ -f /usr/share/bash-completion/bash_completion ]; then
+        . /usr/share/bash-completion/bash_completion
+    elif [ -f /etc/bash_completion ]; then
+        . /etc/bash_completion
+    fi
+fi
+
 # Setup Custom Behaviour Scripts
 for file in ~/scripts/setup-*.bash; do
   . "$file"
 done
 
 . "$HOME/.cargo/env"
+
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+source <(kubectl completion bash)
+complete -o default -F __start_kubectl k # enable bash completion for the 'k' alias
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"                   # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
+
+alias pipenv="python3 -m pipenv"
+
+. <(flux completion bash)

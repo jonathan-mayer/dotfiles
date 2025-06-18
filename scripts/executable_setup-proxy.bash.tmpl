@@ -1,0 +1,11 @@
+#! /bin/bash
+
+export proxy={{ .proxy | quote }}
+export ftp_proxy=${proxy}
+export http_proxy=${proxy}
+export https_proxy=${proxy}
+export FTP_PROXY=${proxy}
+export HTTP_PROXY=${proxy}
+export HTTPS_PROXY=${proxy}
+export NO_PROXY={{ .no_proxy | quote }}
+export no_proxy=$NO_PROXY

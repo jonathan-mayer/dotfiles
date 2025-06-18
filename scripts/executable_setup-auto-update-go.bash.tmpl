@@ -1,6 +1,6 @@
 #! /bin/bash
 
-{{- if eq .go_bins "y" }}
+{{- if .go_bins }}
 export PATH=/usr/local/go/bin:$PATH
 export PATH=/usr/local/go/bin/go:$PATH
 bash ~/scripts/auto-update-go.bash -sb
