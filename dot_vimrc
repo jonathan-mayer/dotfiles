@@ -1,2 +1,10 @@
 source $VIMRUNTIME/defaults.vim
+
 set mouse-=a
+
+set number
+set cursorline
+set tabstop=2
+set shiftwidth=2
+set expandtab
+
