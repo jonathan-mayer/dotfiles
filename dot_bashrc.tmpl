@@ -66,9 +66,6 @@ alias lines-staged="git diff --stat HEAD --cached -- . ':(exclude)**/package-loc
 alias lines-total="git ls-files --others --exclude-standard --cached -z | grep -zv 'package\.json\|package-lock\.json' | xargs -0 wc -l"
 alias lines-total-go="find . -name '*' -type f | grep -e '\.go$' | grep -ve '_test\.go$' | xargs wc -l"
 
-alias reload="source ~/.bashrc"
-alias change="code ~/.bashrc"
-
 command_not_found_handle() {
     # Invoke the default command-not-found handler (if it exists)
     if [ -x /usr/lib/command-not-found ]; then
