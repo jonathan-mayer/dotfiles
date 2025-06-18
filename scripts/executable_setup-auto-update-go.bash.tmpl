@@ -1,0 +1,8 @@
+#! /bin/bash
+
+{{- if eq .go_bins "y" }}
+export PATH=/usr/local/go/bin:$PATH
+export PATH=/usr/local/go/bin/go:$PATH
+bash ~/scripts/auto-update-go.bash -sb
+alias updatego="~/scripts/auto-update-go.bash"
+{{- end }}

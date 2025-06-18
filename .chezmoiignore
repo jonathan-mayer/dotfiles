@@ -1,4 +1,5 @@
 README.md
-{{ if ne .go_bins "n" -}}
+{{ if ne .go_bins "y" -}}
 scripts/auto-update-go.bash
+scripts/setup-auto-update-go.bash
 {{- end }}

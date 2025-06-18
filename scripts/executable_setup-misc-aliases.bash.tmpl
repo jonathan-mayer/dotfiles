@@ -1,0 +1,45 @@
+#! /bin/bash
+
+# Update Alias
+{{- if eq .chezmoi.osRelease.id "arch" }}
+alias update="sudo pacman -Syu --noconfirm && yay --noconfirm && brew upgrade && flatpak update -y"
+{{- else }}
+alias update="sudo apt update && sudo apt upgrade -y && brew upgrade"
+{{- end }}
+
+# Pre-Commit Aliases
+alias pci="pre-commit install" \
+    pcu="pre-commit uninstall" \
+    pcr="pre-commit run --all-files"
+
+# Lines Changed Aliases
+alias lines-changed="git diff --stat main --cached -- . ':(exclude)**/package-lock.json'"
+alias lines-staged="git diff --stat HEAD --cached -- . ':(exclude)**/package-lock.json'"
+alias lines-total="git ls-files --others --exclude-standard --cached -z | grep -zv 'package\.json\|package-lock\.json' | xargs -0 wc -l"
+alias lines-total-go="find . -name '*' -type f | grep -e '\.go$' | grep -ve '_test\.go$' | xargs wc -l"
+
+# Dotenv Alias
+dotenv() {
+    local env_file="${1:-.env}"
+    if [[ -f "$env_file" ]]; then
+        export $(grep -v ^# "$env_file" | xargs)
+    else
+        echo "File $env_file not found!"
+    fi
+}
+
+# Kubernetes Context Alias
+ctx() {
+    if [ $# -eq 0 ]; then # command was run without arguments
+        kubectl config current-context 2>/dev/null
+        kubectl config get-contexts
+    elif [ -z "$1" ]; then
+        kubectl config unset current-context
+    else
+        kubectl config use-context "$1"
+    fi
+}
+
+# ls Aliases
+alias ll="ls -alF"
+alias la="ls -A"
