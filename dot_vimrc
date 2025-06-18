@@ -10,3 +10,4 @@ set expandtab
 
 set cursorline
 hi CursorLine cterm=none ctermbg=236
+hi CursorLineNr cterm=none ctermfg=white guifg=#ff00ff
