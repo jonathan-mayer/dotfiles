@@ -221,6 +221,6 @@ export PATH=$PATH:$HOME/go/bin # for bins installed by go
 
 alias newlinters="golangci-lint linters | awk '/Disabled by your configuration:/,/^\s*$/' | grep -v '\[deprecated\]'"
 
-alias update="sudo pacman -Syu --noconfirm && brew upgrade"
+alias update="sudo pacman -Syu --noconfirm && yay --noconfirm && brew upgrade && flatpak update -y"
 
 export GOPRIVATE=github.com # to get private repos
