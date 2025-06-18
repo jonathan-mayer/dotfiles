@@ -219,7 +219,7 @@ export GO111MODULE=on
 export GOPROXY=https://proxy.golang.org,direct
 export PATH=$PATH:$HOME/go/bin # for bins installed by go
 
-alias newlinters="golangci-lint linters | awk '/Disabled by your configuration linters:/,/^\s*$/' | grep -v '\[deprecated\]'"
+alias newlinters="golangci-lint linters | awk '/Disabled by your configuration:/,/^\s*$/' | grep -v '\[deprecated\]'"
 
 alias update="sudo pacman -Syu --noconfirm && brew upgrade"
 
