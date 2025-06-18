@@ -9,4 +9,4 @@ set shiftwidth=2
 set expandtab
 
 set cursorline
-hi CursorLine term=bold cterm=none ctermbg=lightgray
+hi CursorLine term=bold cterm=none ctermbg=gray
