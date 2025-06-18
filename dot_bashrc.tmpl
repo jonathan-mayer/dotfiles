@@ -17,6 +17,11 @@ export PATH=$PATH:$HOME/go/bin
 
 export LC_ALL="en_US.UTF-8"
 
+{{ if eq .go_bins "y" -}}
+bash ~/scripts/auto-update-go.bash -sb
+alias updatego="~/scripts/auto-update-go.bash"
+{{- end }}
+
 update-go() {
     VERSION=$(curl -s https://go.dev/VERSION?m=text | head -n 1)
     wget https://go.dev/dl/${VERSION}.linux-amd64.tar.gz -O /tmp/go.tar.gz --quiet -o /dev/null
