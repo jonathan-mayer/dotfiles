@@ -15,7 +15,7 @@
 [init]
     defaultBranch = main
 	templateDir = {{ .chezmoi.homeDir }}/.git-template
-{{- if eq .proxy "" }}
+{{- if not .proxy }}
 [url "ssh://git@github.com/"]
     insteadOf = https://github.com/
 {{- end }}

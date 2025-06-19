@@ -3,7 +3,7 @@ README.md
 scripts/auto-update-go.bash
 scripts/setup-auto-update-go.bash
 {{- end }}
-{{- if eq .proxy "" }}
+{{- if not .proxy }}
 scripts/setup-proxy.bash
 {{- end }}
 {{- if .remote }}
