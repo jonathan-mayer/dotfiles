@@ -1,8 +1,5 @@
 {{- $name := promptStringOnce . "name" "Full Name" -}}
 {{- $email := promptStringOnce . "email" "Email address" -}}
-{{- $github := promptStringOnce . "github" "Github Username" -}}
-
-{{- $go_private := promptStringOnce . "go_private" "Additional GOPRIVATE" -}}
 
 {{- $go_bins := promptBoolOnce . "go_bins" "Install Go Binaries? (y/n)" -}}
 
@@ -14,15 +11,46 @@
 {{- $no_proxy = promptStringOnce . "no_proxy" "No Proxy" -}}
 {{- end -}}
 
+{{- $ai := "" -}}
+{{- if and (hasKey . "secrets") (hasKey .secrets "ai") $proxy -}}
+  {{- $ai = .secrets.ai -}}
+{{- else -}}
+  {{- $ai = (bitwarden "item" "ai.jmayr.de").login.password -}}
+{{- end -}}
+
+{{- $gitmachines := list -}}
+{{- if and (hasKey . "git") (hasKey .git "machines") -}}
+  {{- $gitmachines = .git.machines -}}
+{{- else -}}
+{{- range $i, $e := (until (promptInt "Number of Git instances" | int)) -}}
+  {{- $gitmachines = append $gitmachines (dict 
+    "url" (promptString (printf "Git URL %d" $i))
+    "name" (promptString (printf "Git Name %d" $i))
+    "email" (promptString (printf "Git Email %d" $i))
+    "token" ( (bitwarden "item" (promptString (printf "Git Token Bitwarden Search %d" $i))).login.password)
+    "private" (promptBool (printf "Is Git Private? (y/n) %d" $i))
+  ) -}}
+{{- end -}}
+{{- end -}}
+
 [data]
     name = {{ $name | quote }}
     email = {{ $email | quote }}
     go_bins = {{ $go_bins }}
     proxy = {{ $proxy | quote }}
     no_proxy = {{ $no_proxy | quote }}
-    github = {{ $github | quote }}
-    go_private = {{ $go_private | quote }}
     remote = {{ $remote }}
+[data.secrets]
+    ai = {{ $ai | quote }}
+[data.git]
+{{- range $gitmachines }}
+[[data.git.machines]]
+    url = {{ .url | quote }}
+    name = {{ .name | quote }}
+    email = {{ .email | quote }}
+    token = {{ .token | quote }}
+    private = {{ .private }}
+{{- end }}
 [edit]
     command = "code"
     args = "--wait"

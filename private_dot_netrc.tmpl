@@ -1,0 +1,5 @@
+{{- range .git.machines }}
+machine {{ .url }}
+        login {{ .name }}
+        password {{ .token }}
+{{- end }}

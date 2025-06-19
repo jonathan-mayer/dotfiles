@@ -5,7 +5,6 @@ scripts/setup-auto-update-go.bash
 {{- end }}
 {{- if eq .proxy "" }}
 scripts/setup-proxy.bash
-.wgetrc
 {{- end }}
 {{- if .remote }}
 .continue/config.yaml
