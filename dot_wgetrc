@@ -1,3 +1,0 @@
-use_proxy=on
-http_proxy=http://10.91.6.12:443
-https_proxy=http://10.91.6.12:443
