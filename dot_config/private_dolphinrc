@@ -1,0 +1,33 @@
+MenuBar=Disabled
+
+[DetailsMode]
+PreviewSize=32
+
+[ExtractDialog]
+3 screens: Height=538
+3 screens: Width=958
+DirHistory[$e]=$HOME/
+
+[General]
+DoubleClickViewAction=none
+EditableUrl=true
+OpenExternallyCalledFolderInNewTab=true
+OpenNewTabAfterLastTab=true
+ShowFullPath=true
+ShowFullPathInTitlebar=true
+Version=202
+ViewPropsTimestamp=2025,2,3,19,11,33.166
+
+[KFileDialog Settings]
+Places Icons Auto-resize=false
+Places Icons Static Size=22
+
+[MainWindow]
+MenuBar=Disabled
+
+[PreviewSettings]
+Plugins=appimagethumbnail,audiothumbnail,comicbookthumbnail,cursorthumbnail,djvuthumbnail,ebookthumbnail,exrthumbnail,directorythumbnail,fontthumbnail,imagethumbnail,jpegthumbnail,jxl,kraorathumbnail,windowsexethumbnail,windowsimagethumbnail,opendocumentthumbnail,svgthumbnail,gdk-pixbuf-thumbnailer
+
+[Search]
+Location=Everywhere
+What=Content
