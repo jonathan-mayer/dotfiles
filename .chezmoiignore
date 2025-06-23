@@ -11,4 +11,6 @@ scripts/setup-proxy.bash
 .config/dolphinrc
 .config/filezilla/sitemanager.xml
 .local/share/kxmlgui5/dolphin/dolphinui.rc
+ml4w-dotfiles
+scripts/setup-ml4w-bashrc.bash
 {{- end }}
