@@ -12,10 +12,13 @@
 {{- end -}}
 
 {{- $ai := "" -}}
-{{- if and (hasKey . "secrets") (hasKey .secrets "ai") $proxy -}}
+{{- if and (hasKey . "secrets") (hasKey .secrets "ai") -}}
   {{- $ai = .secrets.ai -}}
-{{- else -}}
-  {{- $ai = (bitwarden "item" "ai.jmayr.de").login.password -}}
+{{- end -}}
+
+{{- $octoprint_key := "" -}}
+{{- if and (hasKey . "secrets") (hasKey .secrets "octoprint_key") -}}
+  {{- $octoprint_key = .secrets.octoprint_key -}}
 {{- end -}}
 
 {{- $gitmachines := list -}}
@@ -27,7 +30,7 @@
     "url" (promptString (printf "Git URL %d" $i))
     "name" (promptString (printf "Git Name %d" $i))
     "email" (promptString (printf "Git Email %d" $i))
-    "token" ( (bitwarden "item" (promptString (printf "Git Token Bitwarden Search %d" $i))).login.password)
+    "token" "unset"
     "private" (promptBool (printf "Is Git Private? (y/n) %d" $i))
   ) -}}
 {{- end -}}
@@ -42,6 +45,7 @@
     remote = {{ $remote }}
 [data.secrets]
     ai = {{ $ai | quote }}
+    octoprint_key = {{ $octoprint_key | quote }}
 [data.git]
 {{- range $gitmachines }}
 [[data.git.machines]]
