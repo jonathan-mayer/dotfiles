@@ -8,4 +8,7 @@ scripts/setup-proxy.bash
 {{- end }}
 {{- if .remote }}
 .continue/config.yaml
+.config/dolphinrc
+.config/filezilla/sitemanager.xml
+.local/share/kxmlgui5/dolphin/dolphinui.rc
 {{- end }}
