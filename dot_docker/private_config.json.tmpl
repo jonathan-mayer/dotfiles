@@ -1,0 +1,17 @@
+{
+  "auths": {
+    {{- $len := len .docker.registries }}
+    {{- range $i, $e := .docker.registries }}
+    {{ $e.url | quote }}: {
+      "auth": {{ $e.token | quote }}
+    }{{ if ne (add $i 1) $len }},{{ end }}
+    {{- end }}
+  },
+  "proxies": {
+    "default": {
+      "httpProxy": {{ .proxy | quote }},
+      "httpsProxy": {{ .proxy | quote }},
+      "noProxy": {{ .no_proxy | quote }}
+    }
+  }
+}

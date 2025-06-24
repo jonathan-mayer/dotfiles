@@ -11,12 +11,12 @@
 {{- $no_proxy = promptStringOnce . "no_proxy" "No Proxy" -}}
 {{- end -}}
 
-{{- $ai := "" -}}
+{{- $ai := "unset" -}}
 {{- if and (hasKey . "secrets") (hasKey .secrets "ai") -}}
   {{- $ai = .secrets.ai -}}
 {{- end -}}
 
-{{- $octoprint_key := "" -}}
+{{- $octoprint_key := "unset" -}}
 {{- if and (hasKey . "secrets") (hasKey .secrets "octoprint_key") -}}
   {{- $octoprint_key = .secrets.octoprint_key -}}
 {{- end -}}
@@ -32,6 +32,18 @@
     "email" (promptString (printf "Git Email %d" $i))
     "token" "unset"
     "private" (promptBool (printf "Is Git Private? (y/n) %d" $i))
+  ) -}}
+{{- end -}}
+{{- end -}}
+
+{{- $docker_registries := list -}}
+{{- if and (hasKey . "docker") (hasKey .docker "registries") -}}
+  {{- $docker_registries = .docker.registries -}}
+{{- else -}}
+{{- range $i, $e := (until (promptInt "Number of Docker registries" | int)) -}}
+  {{- $docker_registries = append $docker_registries (dict 
+    "url" (promptString (printf "Registry URL %d" $i))
+    "token" "unset"
   ) -}}
 {{- end -}}
 {{- end -}}
@@ -54,6 +66,12 @@
     email = {{ .email | quote }}
     token = {{ .token | quote }}
     private = {{ .private }}
+{{- end }}
+[data.docker]
+{{- range $docker_registries }}
+[[data.docker.registries]]
+    url = {{ .url | quote }}
+    token = {{ .token | quote }}
 {{- end }}
 [edit]
     command = "code"
