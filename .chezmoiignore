@@ -9,6 +9,7 @@ scripts/setup-proxy.bash
 {{- if .remote }}
 .continue/config.yaml
 .config/dolphinrc
+.config/PrusaSlicer
 .config/filezilla/sitemanager.xml
 .local/share/kxmlgui5/dolphin/dolphinui.rc
 ml4w-dotfiles
