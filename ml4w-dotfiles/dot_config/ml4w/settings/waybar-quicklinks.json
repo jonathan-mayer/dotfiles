@@ -1,6 +1,6 @@
 /*
 Define your quick links for the statusbar here.
-YOu can use icons from here https://fontawesome.com/search?ic=free
+You can use icons from here https://fontawesome.com/search?ic=free
 You can reload waybar with SUPER + SHIFT + B
 */
 {
@@ -34,6 +34,11 @@ You can reload waybar with SUPER + SHIFT + B
         "on-click": "firefox",
         "tooltip-format": "Open Firefox"
     },
+    "custom/quicklink_brave": {
+        "format": "",
+        "on-click": "brave",
+        "tooltip-format": "Open Brave"
+    },
     "custom/quicklink_thunderbird": {
         "format": "",
         "on-click": "thunderbird",
@@ -59,6 +64,7 @@ Add your quicklinks in your desired order to the status bar
             "custom/quicklink_browser",
             "custom/quicklink_email",
             "custom/quicklink_filemanager",
+            "custom/quicklink_calculator",
 
 /*
 Don't remove the quicklinkempty
