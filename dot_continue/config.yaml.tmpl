@@ -22,6 +22,26 @@ models:
       - edit
       - apply
       - summarize
+  - name: gemma3:12b-local
+    provider: ollama
+    model: gemma3:12b
+    roles:
+      - autocomplete
+      - chat
+      - edit
+      - apply
+      - summarize
+  - name: gemma3:4b
+    provider: ollama
+    model: gemma3:4b
+    apiBase: https://ai.jmayr.de
+    apiKey: EMqXTl41qcJUqj0UVp5ZcjkSQ06ysBbTDkM0S
+    roles:
+      - autocomplete
+      - chat
+      - edit
+      - apply
+      - summarize
 context:
   - provider: code
   - provider: docs

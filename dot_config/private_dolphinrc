@@ -1,8 +1,5 @@
 MenuBar=Disabled
 
-[ContextMenu]
-ShowOpenTerminal=false
-
 [DetailsMode]
 PreviewSize=32
 

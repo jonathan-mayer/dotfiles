@@ -12,6 +12,4 @@ scripts/setup-proxy.bash
 .config/PrusaSlicer
 .config/filezilla/sitemanager.xml
 .local/share/kxmlgui5/dolphin/dolphinui.rc
-{{- else }}
-scripts/setup-bash-prompt.bash
 {{- end }}
