@@ -35,7 +35,7 @@ models:
     provider: ollama
     model: gemma3:4b
     apiBase: https://ai.jmayr.de
-    apiKey: EMqXTl41qcJUqj0UVp5ZcjkSQ06ysBbTDkM0S
+    apiKey: {{ .secrets.ai }}
     roles:
       - autocomplete
       - chat
