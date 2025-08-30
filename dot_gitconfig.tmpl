@@ -4,9 +4,9 @@
     signingkey = {{ index (glob (print .chezmoi.homeDir "/.ssh/id_*.pub")) 0 }}
 {{- range $i, $gitInstance := .git.machines}}
 [includeIf "hasconfig:remote.*.url:https://{{ $gitInstance.url }}/**"]
-	path = ~/.gitignores/.gitignore-{{ $i }}
+	path = ~/.gitconfigs/.gitconfig-{{ $i }}
 [includeIf "hasconfig:remote.*.url:git@{{ $gitInstance.url }}*/**"]
-	path = ~/.gitignores/.gitignore-{{ $i }}
+	path = ~/.gitconfigs/.gitconfig-{{ $i }}
 {{- end }}
 [gpg]
         format = ssh
@@ -21,3 +21,5 @@
 {{- end }}
 [core]
     autocrlf = input
+[safe]
+    directory = *

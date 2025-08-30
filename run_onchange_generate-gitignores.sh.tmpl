@@ -1,7 +1,8 @@
 #! /bin/bash
-mkdir -p ~/.gitignores
+mkdir -p ~/.gitconfigs
+rm -f ~/.gitconfigs/*
 {{- range $i, $gitInstance := .git.machines}}
-cat <<EOF > ~/.gitignores/.gitignore-{{ $i }}
+cat <<EOF > ~/.gitconfigs/.gitconfig-{{ $i }}
 [user]
     name = {{ $gitInstance.name }}
     email = {{ $gitInstance.email }}
