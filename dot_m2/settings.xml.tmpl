@@ -1,0 +1,11 @@
+<settings>
+  <servers>
+    {{- range $i, $mavenRepo := .maven.repos}}
+    <server>
+      <id>{{ $mavenRepo.id }}</id>
+      <username>{{ $mavenRepo.username }}</username>
+      <password>{{ $mavenRepo.password }}</password>
+    </server>
+    {{- end }}
+  </servers>
+</settings>

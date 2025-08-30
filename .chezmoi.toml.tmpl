@@ -36,6 +36,19 @@
 {{- end -}}
 {{- end -}}
 
+{{- $mavenRepos := list -}}
+{{- if and (hasKey . "maven") (hasKey .maven "repos") -}}
+  {{- $mavenRepos = .maven.repos -}}
+{{- else -}}
+{{- range $i, $e := (until (promptInt "Number of Maven repos" | int)) -}}
+  {{- $mavenRepos = append $mavenRepos (dict 
+    "id" (promptString (printf "Maven Id %d" $i))
+    "username" (promptString (printf "Maven Username %d" $i))
+    "password" "unset"
+  ) -}}
+{{- end -}}
+{{- end -}}
+
 {{- $docker_registries := list -}}
 {{- if and (hasKey . "docker") (hasKey .docker "registries") -}}
   {{- $docker_registries = .docker.registries -}}
@@ -72,6 +85,12 @@
 [[data.docker.registries]]
     url = {{ .url | quote }}
     token = {{ .token | quote }}
+{{- end }}
+{{- range $mavenRepos }}
+[[data.maven.repos]]
+    id = {{ .id | quote }}
+    username = {{ .username | quote }}
+    password = {{ .password | quote }}
 {{- end }}
 [edit]
     command = "code"
