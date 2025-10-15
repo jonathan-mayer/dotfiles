@@ -3,6 +3,8 @@
 # Update Alias
 {{- if eq .chezmoi.osRelease.id "arch" }}
 alias update="sudo pacman -Syu --noconfirm && yay -Syu --rebuildall --noconfirm && brew upgrade && flatpak update -y"
+{{- else if eq .chezmoi.osRelease.id "fedora" }}
+alias update="sudo dnf upgrade --refresh -y && brew upgrade && flatpak update -y"
 {{- else }}
 alias update="sudo apt update && sudo apt upgrade -y && brew upgrade"
 {{- end }}
