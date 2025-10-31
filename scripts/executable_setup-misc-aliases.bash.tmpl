@@ -55,3 +55,6 @@ alias htop="echo use btop instead"
 
 # delete empty directories
 alias delete-empty-dirs="find . -type d -empty -delete"
+
+# goto main
+alias goto-main="git fetch origin main:main && git checkout main && delete-local-refs"
