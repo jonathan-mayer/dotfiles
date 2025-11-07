@@ -56,12 +56,31 @@ alias htop="echo use btop instead"
 # delete empty directories
 alias delete-empty-dirs="find . -type d -empty -delete"
 
-# goto main
-alias goto-main="git fetch origin main:main && git checkout main && delete-local-refs"
+# git goto main
+alias gitmain="git fetch origin main:main && git checkout main && delete-local-refs"
+
+# git open repo in browser
+gitopen() {
+    # normalize repo url
+    local repo_url
+    repo_url=$(git remote get-url origin)
+
+    if [[ "$repo_url" =~ ^git@([^:]+):(.+)\.git$ ]]; then
+        repo_url="https://${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+    elif [[ "$repo_url" =~ ^https://.+\.git$ ]]; then
+        repo_url="${repo_url%.git}"
+    fi
+
+    # Open branch page only if $BROWSER is defined
+    if [[ -n "$BROWSER" ]]; then
+        echo "Opening: $repo_url"
+        "$BROWSER" "$repo_url" &
+    fi
+}
 
 # git branch and commit
 gitcb() {
-    local message="$1" # something like "fix: something again"
+    local message="$*" # something like "fix: something again"
 
     if [[ -z "$message" ]]; then
         echo "Usage: gitcb \"<commit message>\""
@@ -74,4 +93,6 @@ gitcb() {
     git switch -c "$branch"
     git commit -nam "$message"
     git push -u origin "$branch"
+
+    gitopen
 }
