@@ -57,4 +57,21 @@ alias htop="echo use btop instead"
 alias delete-empty-dirs="find . -type d -empty -delete"
 
 # goto main
-alias goto-main="git fetch origin && git checkout main && git pull && delete-local-refs"
+alias goto-main="git fetch origin main:main && git checkout main && delete-local-refs"
+
+# git branch and commit
+gitcb() {
+    local message="$1" # something like "fix: something again"
+
+    if [[ -z "$message" ]]; then
+        echo "Usage: gitcb \"<commit message>\""
+        return 1
+    fi
+
+    # convert message to "fix/something-again" for branch
+    local branch=$(echo "$message" | sed -E 's/^([a-z]+):[[:space:]]*(.*)$/\1\/\2/' | tr ' ' '-' | tr '[:upper:]' '[:lower:]') 
+
+    git switch -c "$branch"
+    git commit -nam "$message"
+    git push -u origin "$branch"
+}
