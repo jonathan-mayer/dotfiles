@@ -65,8 +65,11 @@ gitopen() {
     local repo_url
     repo_url=$(git remote get-url origin)
 
+    # normalize ssh (with and without protocol) and http urls
     if [[ "$repo_url" =~ ^ssh://git@(.+)\.git$ ]]; then
         repo_url="https://${BASH_REMATCH[1]}"
+    elif [[ "$repo_url" =~ ^git@([^:]+):(.+)\.git$ ]]; then
+        repo_url="https://${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
     elif [[ "$repo_url" =~ ^https://.+\.git$ ]]; then
         repo_url="${repo_url%.git}"
     fi
