@@ -65,17 +65,16 @@ gitopen() {
     local repo_url
     repo_url=$(git remote get-url origin)
 
-    if [[ "$repo_url" =~ ^git@([^:]+):(.+)\.git$ ]]; then
-        repo_url="https://${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+    if [[ "$repo_url" =~ ^ssh://git@(.+)\.git$ ]]; then
+        repo_url="https://${BASH_REMATCH[1]}"
     elif [[ "$repo_url" =~ ^https://.+\.git$ ]]; then
         repo_url="${repo_url%.git}"
     fi
 
-    # Open branch page only if $BROWSER is defined
-    if [[ -n "$BROWSER" ]]; then
-        echo "Opening: $repo_url"
-        "$BROWSER" "$repo_url" &
-    fi
+    # Open Repo in browser
+    local opener="${BROWSER:-xdg-open}"
+    echo "Opening: $repo_url"
+    "$opener" "$repo_url" >/dev/null 2>&1
 }
 
 # git branch and commit
@@ -88,6 +87,10 @@ gitcb() {
     fi
 
     # convert message to "fix/something-again" for branch
+    # logic:
+    #   sed: try converting ": " to "/" or keep original string
+    #   tr: replace " " with "-"
+    #   tr: convert to lowercase
     local branch=$(echo "$message" | sed -E 's/^([a-z]+):[[:space:]]*(.*)$/\1\/\2/' | tr ' ' '-' | tr '[:upper:]' '[:lower:]') 
 
     git switch -c "$branch"
