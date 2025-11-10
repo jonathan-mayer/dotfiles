@@ -42,6 +42,11 @@ ctx() {
         kubectl config use-context "$1"
     fi
 }
+_ctx() {
+  [[ $COMP_CWORD -eq 1 ]] &&
+    COMPREPLY=( $(compgen -W "$(kubectl config get-contexts -o name)" -- "${COMP_WORDS[1]}") )
+}
+complete -F _ctx ctx
 
 # ls Aliases
 alias ll="ls -alF"
@@ -132,3 +137,8 @@ gitcb() {
 
     gitopen
 }
+_gitcb() {
+  [[ $COMP_CWORD -eq 1 ]] &&
+    COMPREPLY=( $(compgen -W "feat: chore: revert: fix: refactor: test: docs: style: perf:" -- "${COMP_WORDS[1]}") )
+}
+complete -F _gitcb gitcb
