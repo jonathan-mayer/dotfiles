@@ -26,6 +26,8 @@ packages:
       - "onedrive-cli"
       - "tree"
       - "yt-dlp"
+      - "glab"
+      - "renovate"
     platform:
       - arch:
           pacman: jdk-openjdk
