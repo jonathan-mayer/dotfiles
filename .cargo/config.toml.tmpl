@@ -1,0 +1,6 @@
+[http]
+{{- if .proxy }}
+proxy = "{{ .proxy }}" # HTTP proxy to use for HTTP requests (defaults to none)
+                       # in libcurl format, e.g., "socks5h://host:port"
+{{- end }}
+timeout = 30           # Timeout for each HTTP request, in seconds

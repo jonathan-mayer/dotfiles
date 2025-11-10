@@ -61,6 +61,13 @@ alias htop="echo use btop instead"
 # delete empty directories
 alias delete-empty-dirs="find . -type d -empty -delete"
 
+# open in browser
+browser() {
+    local opener="${BROWSER:-xdg-open}"
+    echo "Opening: $1"
+    "$opener" "$1" >/dev/null 2>&1
+}
+
 # git goto main
 alias gitmain="git fetch origin main:main && git checkout main && delete-local-refs"
 
@@ -92,9 +99,7 @@ gitopen() {
     fi
 
     # Open Repo in browser
-    local opener="${BROWSER:-xdg-open}"
-    echo "Opening: $repo_url"
-    "$opener" "$repo_url" >/dev/null 2>&1
+    browser "$repo_url"
 
     # return to original directory
     cd "$orig_dir"

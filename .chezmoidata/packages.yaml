@@ -28,6 +28,9 @@ packages:
       - "yt-dlp"
       - "glab"
       - "renovate"
+      - "rust"
+    cargo:
+      - "gitlab-tui"
     platform:
       - arch:
           pacman: jdk-openjdk
