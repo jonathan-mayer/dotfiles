@@ -36,6 +36,11 @@ for file in ~/scripts/setup-*.bash; do
   . "$file"
 done
 
+# brew bash completion
+for file in /home/linuxbrew/.linuxbrew/etc/bash_completion.d/*; do
+  . "$file"
+done
+
 if [ -f $HOME/.cargo ]; then
     . "$HOME/.cargo/env"
 fi
