@@ -89,6 +89,21 @@ gitcb() {
         return 1
     fi
 
+    # check if user is not currently on main
+    local current_branch
+    current_branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+    if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
+        echo "You are currently on branch: $current_branch."
+        echo "Typically you use this command (git commit and branch) for a single commit change that requires branching."
+        echo "If this wasn't intentional you might want to checkout main using 'gitmain'."
+        read -rp "Continue creating a new branch from here? [y/N] " confirm
+        case "$confirm" in
+            [yY][eE][sS]|[yY]) ;;
+            *) echo "Aborted."; return 1 ;;
+        esac
+    fi
+
     # convert message to "fix/something-again" for branch
     # logic:
     #   sed: try converting ": " to "/" or keep original string
