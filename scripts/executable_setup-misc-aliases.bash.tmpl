@@ -61,6 +61,18 @@ alias gitmain="git fetch origin main:main && git checkout main && delete-local-r
 
 # git open repo in browser
 gitopen() {
+    local dir="${1:-.}"
+    
+    # Verify it's a git repository
+    if [[ ! -d "$dir/.git" ]]; then
+        echo "Error: '$dir' is not a git repository." >&2
+        return 1
+    fi
+
+    # Save current directory and switch to target
+    local orig_dir="$(pwd)"
+    cd "$dir" || return 1
+
     # normalize repo url
     local repo_url
     repo_url=$(git remote get-url origin)
@@ -78,6 +90,9 @@ gitopen() {
     local opener="${BROWSER:-xdg-open}"
     echo "Opening: $repo_url"
     "$opener" "$repo_url" >/dev/null 2>&1
+
+    # return to original directory
+    cd "$orig_dir"
 }
 
 # git branch and commit
