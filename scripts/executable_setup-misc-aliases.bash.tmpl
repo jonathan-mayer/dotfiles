@@ -244,3 +244,10 @@ _gittag_complete() {
 }
 complete -F _gittag_complete gittag
 
+# flux reconcile ssp component
+reconcilecomponent() {
+  local component="${1:-$(basename "$(pwd)")}"
+  echo "Reconciling: $component"
+  flux reconcile kustomization --with-source gitrepositories ssp-namespaces $component
+  flux reconcile helmrelease --with-source -n $component $component
+}
