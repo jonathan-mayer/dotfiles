@@ -149,3 +149,98 @@ _gitcb() {
     COMPREPLY=( $(compgen -W "feat: chore: revert: fix: refactor: test: docs: style: perf:" -- "${COMP_WORDS[1]}") )
 }
 complete -F _gitcb gitcb
+
+# automatic semver tagging
+gittag() {
+  local type=$1
+  local bump=$2
+
+  if [[ -z "$type" || -z "$bump" ]]; then
+    echo "Usage: gittag <release|rc> <major|minor|patch>"
+    return 1
+  fi
+
+  # get latest release tag (exclude RCs)
+  local latest_release_tag
+  latest_release_tag=$(git tag --list | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
+
+  # set base version if no release tags exist
+  if [[ -z "$latest_release_tag" ]]; then
+    if [[ "$type" == "release" ]]; then
+      latest_release_tag="0.0.0"
+    else
+      # for RC with no releases, use 0.0.0 as base
+      latest_release_tag="0.0.0"
+    fi
+  fi
+
+  IFS='.' read -r major minor patch <<< "$latest_release_tag"
+
+  # bump the version appropriately
+  case "$bump" in
+    major)
+      ((major++))
+      minor=0
+      patch=0
+      ;;
+    minor)
+      ((minor++))
+      patch=0
+      ;;
+    patch)
+      ((patch++))
+      ;;
+    *)
+      echo "Invalid bump type: $bump (must be major|minor|patch)"
+      return 1
+      ;;
+  esac
+
+  local new_tag base_rc latest_rc_tag rc_number
+  base_rc="${major}.${minor}.${patch}"
+
+  if [[ "$type" == "release" ]]; then
+    new_tag="$base_rc"
+
+  elif [[ "$type" == "rc" ]]; then
+    # Match both "1.2.3rc1" and "1.2.3-rc1"
+    latest_rc_tag=$(git tag --list | grep -E "^${base_rc}(-?rc)[0-9]+$" | sort -V | tail -n1)
+
+    if [[ -z "$latest_rc_tag" ]]; then
+      new_tag="${base_rc}-rc1"
+    else
+      # Extract rc number (works for both formats)
+      rc_number=$(echo "$latest_rc_tag" | sed -E "s/^${base_rc}-?rc([0-9]+)$/\1/")
+      ((rc_number++))
+      new_tag="${base_rc}-rc${rc_number}"
+    fi
+  else
+    echo "Invalid type: $type (must be release|rc)"
+    return 1
+  fi
+
+  # create and push the tag
+  git tag "$new_tag"
+  #git push origin "$new_tag"
+  echo "Created tag: $new_tag"
+}
+_gittag_complete() {
+  local cur prev
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+  # first argument suggestions
+  if [[ $COMP_CWORD -eq 1 ]]; then
+    COMPREPLY=( $(compgen -W "release rc" -- "$cur") )
+    return 0
+  fi
+
+  # second argument suggestions
+  if [[ $COMP_CWORD -eq 2 ]]; then
+    COMPREPLY=( $(compgen -W "major minor patch" -- "$cur") )
+    return 0
+  fi
+}
+complete -F _gittag_complete gittag
+
