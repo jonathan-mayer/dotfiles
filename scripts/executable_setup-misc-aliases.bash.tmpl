@@ -138,7 +138,8 @@ gitcb() {
     local branch=$(echo "$message" | sed -E 's/^([a-z]+):[[:space:]]*(.*)$/\1\/\2/' | tr ' ' '-' | tr '[:upper:]' '[:lower:]') 
 
     git switch -c "$branch"
-    git commit -nam "$message"
+    git add .
+    git commit -nm "$message"
     git push -u origin "$branch"
 
     gitopen
