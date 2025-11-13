@@ -221,7 +221,7 @@ gittag() {
 
   # create and push the tag
   git tag "$new_tag"
-  #git push origin "$new_tag"
+  git push origin "$new_tag"
   echo "Created tag: $new_tag"
 }
 _gittag_complete() {
