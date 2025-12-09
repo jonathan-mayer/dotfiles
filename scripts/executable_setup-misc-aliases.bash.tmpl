@@ -69,7 +69,16 @@ browser() {
 }
 
 # git goto main
-alias gitmain="git fetch origin main:main && git checkout main && delete-local-refs"
+gitmain() {
+  current_branch=$(git rev-parse --abbrev-ref HEAD)
+  if [ "$current_branch" = "main" || "$current_branch" == "master" ]; then
+    git pull origin main
+  else
+    git fetch origin main:main
+    git checkout main
+  fi
+  delete-local-refs
+}
 
 # git open repo in browser
 gitopen() {
@@ -198,12 +207,17 @@ gittag() {
       ;;
   esac
 
-  local new_tag base_rc latest_rc_tag rc_number
+  local new_tag base_rc latest_rc_tag rc_number warn_msg continue_msg
   base_rc="${major}.${minor}.${patch}"
+  current_branch=$(git rev-parse --abbrev-ref HEAD)
 
   if [[ "$type" == "release" ]]; then
     new_tag="$base_rc"
-
+    if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
+      warn_msg="Your selected type 'release' is typically used on main/master branches.
+If this wasn't intentional you might want to checkout main using 'gitmain'."
+      continue_msg="Continue creating release tag on this commit? [y/N] "
+    fi
   elif [[ "$type" == "rc" ]]; then
     # Match both "1.2.3rc1" and "1.2.3-rc1"
     latest_rc_tag=$(git tag --list | grep -E "^${base_rc}(-?rc)[0-9]+$" | sort -V | tail -n1)
@@ -216,9 +230,26 @@ gittag() {
       ((rc_number++))
       new_tag="${base_rc}-rc${rc_number}"
     fi
+
+    if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
+      warn_msg="Your selected type 'rc' is typically used on feature branches.
+If this wasn't intentional you might want to use the 'release' type."
+      continue_msg="Continue creating rc tag on this commit? [y/N] "
+    fi
   else
     echo "Invalid type: $type (must be release|rc)"
     return 1
+  fi
+
+  # If a warning was prepared, show it and confirm
+  if [[ -n "$warn_msg" ]]; then
+      echo "You are currently on branch: $current_branch."
+      echo "$warn_msg"
+      read -rp "$continue_msg" confirm
+      case "$confirm" in
+          [yY][eE][sS]|[yY]) ;;
+          *) echo "Aborted."; return 1 ;;
+      esac
   fi
 
   # create and push the tag
