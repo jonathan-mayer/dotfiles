@@ -29,6 +29,7 @@ makespace() {
   echo
 
   # TODO ~/.cache folder cleanup
+  # TODO add how much disk space can be saved before deleting anything
 
   # ------------------------------------------------------------------
   # Docker: explicit per-item cleanup
