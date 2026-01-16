@@ -15,6 +15,7 @@ disk_used_bytes() {
 
 # free up expendible disk space
 makespace() {
+  shopt -s nullglob
   set -uo pipefail
 
   ask() {
@@ -202,6 +203,9 @@ makespace() {
   # nvm-installed Node versions
   # ------------------------------------------------------------------
   if [[ -n "${NVM_DIR:-}" && -d "$NVM_DIR/versions/node" ]]; then
+    echo "The following results are for $(nvm which current), if this isn't an nvm-managed version these are not representative."
+    echo "You currently have these npm packages installed, deleting the version will also delete these:"
+    npm list -g
     for dir in "$NVM_DIR"/versions/node/*; do
       version=$(basename "$dir")
 
