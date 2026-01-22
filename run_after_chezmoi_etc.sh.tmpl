@@ -1,22 +1,18 @@
 #! /bin/bash
+# This script creates symlinks in /etc to the rendered ~/.chezmoi_etc.
+
 set -eu
 
-# Where chezmoi renders your staged /etc tree
 SRC_ROOT="{{ .chezmoi.homeDir }}/.chezmoi_etc"
-# Where you want the symlinks to appear
 DST_ROOT="/etc"
 
-# Nothing to do if the staged tree doesn't exist (e.g., first run before apply)
 [ -d "$SRC_ROOT" ] || exit 0
 
-# Link every regular file under $SRC_ROOT into $DST_ROOT, preserving relative paths
 find "$SRC_ROOT" -type f -print0 | while IFS= read -r -d '' src; do
   rel="${src#"$SRC_ROOT"/}"
   dst="$DST_ROOT/$rel"
 
-  # Ensure parent directory exists
   sudo mkdir -p "$(dirname "$dst")"
 
-  # Create/replace symlink atomically
   sudo ln -sfn "$src" "$dst"
 done

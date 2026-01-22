@@ -1,4 +1,6 @@
 #! /bin/bash
+# This script renders out gitconfigs for all defined git instances.
+
 mkdir -p ~/.gitconfigs
 rm -f ~/.gitconfigs/*
 {{- range $i, $gitInstance := .git.machines}}
