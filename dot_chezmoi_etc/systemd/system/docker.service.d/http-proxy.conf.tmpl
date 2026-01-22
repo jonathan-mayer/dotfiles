@@ -1,0 +1,6 @@
+{{- if .proxy }}
+[Service]
+Environment="HTTP_PROXY={{ .proxy }}"
+Environment="HTTPS_PROXY={{ .proxy }}"
+Environment="NO_PROXY={{ .no_proxy }}"
+{{- end }}

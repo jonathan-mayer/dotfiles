@@ -60,6 +60,7 @@
   ) -}}
 {{- end -}}
 {{- end -}}
+{{- $docker_mirror := promptStringOnce . "docker.docker_mirror" "Docker Mirror" -}}
 
 [data]
     name = {{ $name | quote }}
@@ -81,6 +82,7 @@
     private = {{ .private }}
 {{- end }}
 [data.docker]
+    mirror = {{ $docker_mirror | quote }}
 {{- range $docker_registries }}
 [[data.docker.registries]]
     url = {{ .url | quote }}

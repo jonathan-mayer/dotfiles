@@ -8,7 +8,7 @@ packages:
       - "protobuf"
       - "gcc"
       - "go"
-      - "k9s"
+      - "derailed/k9s/k9s"
       - "kubernetes-cli"
       - "helm"
       - "pre-commit"
@@ -16,6 +16,7 @@ packages:
       - "chezmoi"
       - "docker"
       - "docker-compose"
+      - "docker-buildx"
       - "jq"
       - "yq"
       - "iputils"
@@ -23,12 +24,12 @@ packages:
       - "node"
       - "nvtop"
       - "ollama"
-      - "onedrive-cli"
       - "tree"
       - "yt-dlp"
       - "glab"
       - "renovate"
       - "rust"
+      - "nvm"
     cargo:
       - "gitlab-tui"
     platform:
@@ -130,3 +131,5 @@ packages:
           yay: freefilesync
       - arch:
           yay: nbtexplorer
+      - arch:
+          yay: onedriver

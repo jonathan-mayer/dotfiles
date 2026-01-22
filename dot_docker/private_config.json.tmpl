@@ -7,9 +7,9 @@
       "auth": {{ $e.token | quote }}
     }{{ if ne (add $i 1) $len }},{{ end }}
     {{- end }}
-  }{{ if .proxy }},{{ end }}
+  }
   {{- end }}
-  {{- if .proxy }}
+  {{- if .proxy }},
   "proxies": {
     "default": {
       "httpProxy": {{ .proxy | quote }},
@@ -17,5 +17,8 @@
       "noProxy": {{ .no_proxy | quote }}
     }
   }
+  {{- end }}
+  {{- if .docker.mirror }},
+  "registry-mirrors": ["{{ .docker.mirror | quote }}"]
   {{- end }}
 }
