@@ -154,8 +154,13 @@ gitcb() {
     gitopen
 }
 _gitcb() {
+  COMP_WORDBREAKS=${COMP_WORDBREAKS//:}
+  # declare -p COMP_CWORD COMP_WORDS # DEBUG
+
   [[ $COMP_CWORD -eq 1 ]] &&
     COMPREPLY=( $(compgen -W "feat: chore: revert: fix: refactor: test: docs: style: perf:" -- "${COMP_WORDS[1]}") )
+  [[ $COMP_CWORD -eq 2 ]] &&
+    COMPREPLY=( $(compgen -W "add adjust rm remove include bump sw switch fix" -- "${COMP_WORDS[2]}") )
 }
 complete -F _gitcb gitcb
 
