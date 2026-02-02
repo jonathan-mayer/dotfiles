@@ -19,6 +19,6 @@
   }
   {{- end }}
   {{- if .docker.mirror }},
-  "registry-mirrors": ["{{ .docker.mirror | quote }}"]
+  "registry-mirrors": [{{ .docker.mirror | quote }}]
   {{- end }}
 }
