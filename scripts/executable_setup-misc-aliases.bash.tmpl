@@ -58,19 +58,13 @@ alias k=kubectl
 # copy dir alias
 alias cp="cp -r"
 
-# glab clone group alias
-alias reclone="cd ~/dev && glab repo clone --group ssp --preserve-namespace --paginate ssp; cd -"
-
-# vscode cli wrapper alias
-code() {
-  local dev_dir="$HOME/dev"
-  local main_dir="$HOME/dev/ssp"
-  local dev_dir_name="$(basename -- "$dev_dir")"
-  local main_dir_name="$(basename -- "$main_dir")"
-  local -a flags=()
-  local -a paths=()
-
-  transform_path() {
+# dev path roots helper
+export dev_dir="$HOME/dev"
+export main_dir="$HOME/dev/ssp"
+export dev_dir_name="$(basename -- "$dev_dir")"
+export main_dir_name="$(basename -- "$main_dir")"
+export gitlab_group="ssp"
+_dev_path() {
   local p="$1"
   if [[ "$p" == "chezmoi" ]]; then
     chezmoi source-path
@@ -95,39 +89,11 @@ code() {
     printf '%s\n' "$p"
   fi
 }
-
-  for arg in "$@"; do
-    if [[ "$arg" == -* ]]; then
-      flags+=("$arg")
-    else
-      paths+=("$(transform_path "$arg")")
-    fi
-  done
-
-  if [[ ${#paths[@]} -eq 0 ]]; then
-    command code "${flags[@]}"
-    return
-  fi
-
-  local rc=0
-  local p
-  for p in "${paths[@]}"; do
-    command code "${flags[@]}" "$p" || rc=$?
-  done
-
-  return $rc
-}
-_code_wrapper_completion() {
+_dev_path_completion() {
   local cur
   cur="${COMP_WORDS[COMP_CWORD]}"
 
   [[ "$cur" == -* ]] && return 0
-
-  local dev_dir="$HOME/dev"
-  local main_dir="$HOME/dev/ssp"
-  local dev_dir_name main_dir_name
-  dev_dir_name="$(basename -- "$dev_dir")"
-  main_dir_name="$(basename -- "$main_dir")"
 
   COMPREPLY=()
 
@@ -192,8 +158,107 @@ _code_wrapper_completion() {
 
   return 0
 }
-complete -F _code_wrapper_completion code
 
+# vscode cli wrapper alias
+code() {
+  local -a flags=()
+  local -a paths=()
+
+  for arg in "$@"; do
+    if [[ "$arg" == -* ]]; then
+      flags+=("$arg")
+    else
+      paths+=("$(_dev_path "$arg")")
+    fi
+  done
+
+  if [[ ${#paths[@]} -eq 0 ]]; then
+    command code "${flags[@]}"
+    return
+  fi
+
+  local rc=0
+  local p
+  for p in "${paths[@]}"; do
+    command code "${flags[@]}" "$p" || rc=$?
+  done
+
+  return $rc
+}
+complete -F _dev_path_completion code
+
+# glab clone group alias
+alias dev-reclone="cd $(dirname $main_dir) && glab repo clone --group $gitlab_group --preserve-namespace --paginate $(basename $main_dir); cd -"
+alias dev-clone="dev-reclone"
+
+# create repo alias in $dev_dir
+dev-alias() {
+  mkdir -p $(dirname "$(_dev_path $2)")
+  ln -s $(_dev_path $1) $(_dev_path $2)
+}
+complete -F _dev_path_completion dev-alias
+
+# rm in $dev_dir
+dev-rm() {
+  local paths=()
+  for arg in "$@"; do
+    paths+=("$(_dev_path "$arg")")
+  done
+  rm -rf "${paths[@]}"
+}
+complete -F _dev_path_completion dev-rm
+
+# cp in $dev_dir
+dev-cp() {
+  local paths=()
+  for arg in "$@"; do
+    paths+=("$(_dev_path "$arg")")
+  done
+  cp -r "${paths[@]}"
+}
+complete -F _dev_path_completion dev-cp
+
+# mv in $dev_dir
+dev-mv() {
+  local paths=()
+  for arg in "$@"; do
+    paths+=("$(_dev_path "$arg")")
+  done
+  mv "${paths[@]}"
+}
+complete -F _dev_path_completion dev-mv
+
+# mv in $dev_dir
+dev-mkdir() {
+  local paths=()
+  for arg in "$@"; do
+    paths+=("$(_dev_path "$arg")")
+  done
+  mkdir -p "${paths[@]}"
+}
+complete -F _dev_path_completion dev-mkdir
+
+# list repo aliases in $dev_dir
+dev-list-aliases() {
+  find $dev_dir -type l -exec sh -c '
+  for link; do
+    target=$(readlink -f "$link") || continue
+    [ -d "$target" ] || continue
+
+    if [ -d "$target/.git" ]; then
+      printf "%s -> %s\n" "$link" "$target"
+      continue
+    fi
+
+    for d in "$target"/*; do
+      [ -d "$d/.git" ] && {
+        printf "%s -> %s\n" "$link" "$target"
+        break
+      }
+    done
+  done
+  ' sh {} +
+}
 
 # btop alias
 alias htop="echo use btop instead"
