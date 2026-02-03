@@ -344,6 +344,7 @@ _git_commit_message_completion() {
 # git branch and commit
 gitcb() {
     local message="$*" # something like "fix: something again"
+    message=$(printf '%s\n' "$message" | sed 's/  */ /g') # normalize whitespaces
 
     if [[ -z "$message" ]]; then
         echo "Usage: gitcb \"<commit message>\""
@@ -379,6 +380,7 @@ complete -F _git_commit_message_completion gitcb
 # git branch
 gitb() {
     local input="$*" # something like "fix: something again"
+    input=$(printf '%s\n' "$input" | sed 's/  */ /g') # normalize whitespaces
 
     if [[ -z "$input" ]]; then
         echo "Usage: gitcb \"<branch name>\""
@@ -395,6 +397,7 @@ complete -F _git_commit_message_completion gitb
 # git commit
 gitc() {
     local input="$*" # something like "fix: something again"
+    input=$(printf '%s\n' "$input" | sed 's/  */ /g') # normalize whitespaces
 
     if [[ -z "$input" ]]; then
         echo "Usage: gitcb \"<commit message>\""
