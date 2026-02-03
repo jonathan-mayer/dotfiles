@@ -298,6 +298,7 @@ gitmain() {
 # git open repo in browser
 gitopen() {
     local dir="${1:-.}"
+    dir="$(_dev_path "$dir")"
     
     # Verify it's a git repository
     if [[ ! -d "$dir/.git" ]]; then
@@ -328,7 +329,7 @@ gitopen() {
     # return to original directory
     cd "$orig_dir"
 }
-complete -d gitopen
+complete -F _dev_path_completion gitopen
 
 # git commit to branch helper
 _git_branch_helper() {
