@@ -61,6 +61,140 @@ alias cp="cp -r"
 # glab clone group alias
 alias reclone="cd ~/dev && glab repo clone --group ssp --preserve-namespace --paginate ssp; cd -"
 
+# vscode cli wrapper alias
+code() {
+  local dev_dir="$HOME/dev"
+  local main_dir="$HOME/dev/ssp"
+  local dev_dir_name="$(basename -- "$dev_dir")"
+  local main_dir_name="$(basename -- "$main_dir")"
+  local -a flags=()
+  local -a paths=()
+
+  transform_path() {
+  local p="$1"
+  if [[ "$p" == "chezmoi" ]]; then
+    chezmoi source-path
+  elif [[ "$p" != /* && "$p" != ./* && "$p" != ../* ]]; then
+    if [[ "$p" == "$main_dir_name" ]]; then
+      printf '%s\n' "$main_dir"
+    elif [[ "$p" == "$main_dir_name"/* ]]; then
+      p="${p#"$main_dir_name"/}"
+      printf '%s\n' "$main_dir/$p"
+    elif [[  "$p" == dev/* ]]; then
+      p="${p#dev/}"
+      printf '%s\n' "$dev_dir/$p"
+    elif [[ "$p" == "$dev_dir_name"/* ]]; then
+      p="${p#"$dev_dir_name"/}"
+      printf '%s\n' "$dev_dir/$p"
+    elif [[ "$p" == dev || "$p" == "$dev_dir_name" ]]; then
+      printf '%s\n' "$dev_dir"
+    else
+      printf '%s\n' "$main_dir/$p"
+    fi
+  else
+    printf '%s\n' "$p"
+  fi
+}
+
+  for arg in "$@"; do
+    if [[ "$arg" == -* ]]; then
+      flags+=("$arg")
+    else
+      paths+=("$(transform_path "$arg")")
+    fi
+  done
+
+  if [[ ${#paths[@]} -eq 0 ]]; then
+    command code "${flags[@]}"
+    return
+  fi
+
+  local rc=0
+  local p
+  for p in "${paths[@]}"; do
+    command code "${flags[@]}" "$p" || rc=$?
+  done
+
+  return $rc
+}
+_code_wrapper_completion() {
+  local cur
+  cur="${COMP_WORDS[COMP_CWORD]}"
+
+  [[ "$cur" == -* ]] && return 0
+
+  local dev_dir="$HOME/dev"
+  local main_dir="$HOME/dev/ssp"
+  local dev_dir_name main_dir_name
+  dev_dir_name="$(basename -- "$dev_dir")"
+  main_dir_name="$(basename -- "$main_dir")"
+
+  COMPREPLY=()
+
+  compopt -o filenames -o nospace 2>/dev/null
+
+  if [[ -z "$cur" || ( "$cur" != /* && "$cur" != ./* && "$cur" != ../* && "$cur" != */* ) ]]; then
+    local -a vwords=("chezmoi" "dev/" "${dev_dir_name}/" "${main_dir_name}/")
+    COMPREPLY+=($(compgen -W "${vwords[*]}" -- "$cur"))
+  fi
+
+  _code__complete_under() {
+    local base="$1" vprefix="$2" rest="$3"
+    local m out real
+    local IFS=$'\n'
+
+    for m in $(compgen -f -- "$base/$rest"); do
+      real="$m"
+
+      out="${m#$base/}"
+      out="${out#$base}"
+
+      # Append slash if the real path is a directory
+      if [[ -d "$real" ]]; then
+        out="${out}/"
+      fi
+
+      if [[ -n "$vprefix" ]]; then
+        COMPREPLY+=("$vprefix/$out")
+      else
+        COMPREPLY+=("$out")
+      fi
+    done
+  }
+
+  # Special token "chezmoi" is exact-only in the wrapper
+  if [[ "$cur" == chezmoi* ]]; then
+    COMPREPLY=($(compgen -W "chezmoi" -- "$cur"))
+    return 0
+  fi
+
+  # Absolute / explicit relative paths: normal filename completion
+  if [[ "$cur" == /* || "$cur" == ./* || "$cur" == ../* ]]; then
+    COMPREPLY=($(compgen -f -- "$cur"))
+    return 0
+  fi
+
+  case "$cur" in
+    dev/*)
+      _code__complete_under "$dev_dir" "dev" "${cur#dev/}"
+      ;;
+    "${dev_dir_name}"/*)
+      _code__complete_under "$dev_dir" "$dev_dir_name" "${cur#"$dev_dir_name"/}"
+      ;;
+    "${main_dir_name}"/*)
+      _code__complete_under "$main_dir" "$main_dir_name" "${cur#"$main_dir_name"/}"
+      ;;
+    *)
+      # Default: complete relative to main_dir with no virtual prefix
+      _code__complete_under "$main_dir" "" "$cur"
+      ;;
+  esac
+
+  return 0
+}
+complete -F _code_wrapper_completion code
+
+
 # btop alias
 alias htop="echo use btop instead"
 
