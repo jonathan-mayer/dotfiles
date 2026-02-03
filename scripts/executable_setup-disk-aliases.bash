@@ -282,3 +282,12 @@ disktracker() {
     echo "Disk change for '$*': $(human "$delta")"
 }
 
+check_disk_usage() {
+  local usage
+  usage=$(df -P / | awk 'NR==2 {gsub("%",""); print $5}')
+
+  if [ "$usage" -ge 90 ]; then
+    echo "WARNING: Root filesystem usage is ${usage}%"
+  fi
+}
+check_disk_usage
