@@ -104,7 +104,7 @@ _dev_path_completion() {
     COMPREPLY+=($(compgen -W "${vwords[*]}" -- "$cur"))
   fi
 
-  _code__complete_under() {
+  _dev_path_completion_under() {
     local base="$1" vprefix="$2" rest="$3"
     local m out real
     local IFS=$'\n'
@@ -142,17 +142,17 @@ _dev_path_completion() {
 
   case "$cur" in
     dev/*)
-      _code__complete_under "$dev_dir" "dev" "${cur#dev/}"
+      _dev_path_completion_under "$dev_dir" "dev" "${cur#dev/}"
       ;;
     "${dev_dir_name}"/*)
-      _code__complete_under "$dev_dir" "$dev_dir_name" "${cur#"$dev_dir_name"/}"
+      _dev_path_completion_under "$dev_dir" "$dev_dir_name" "${cur#"$dev_dir_name"/}"
       ;;
     "${main_dir_name}"/*)
-      _code__complete_under "$main_dir" "$main_dir_name" "${cur#"$main_dir_name"/}"
+      _dev_path_completion_under "$main_dir" "$main_dir_name" "${cur#"$main_dir_name"/}"
       ;;
     *)
       # Default: complete relative to main_dir with no virtual prefix
-      _code__complete_under "$main_dir" "" "$cur"
+      _dev_path_completion_under "$main_dir" "" "$cur"
       ;;
   esac
 
