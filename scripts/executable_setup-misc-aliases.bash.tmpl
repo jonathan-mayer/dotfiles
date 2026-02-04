@@ -68,7 +68,7 @@ _dev_path() {
   local p="$1"
   if [[ "$p" == "chezmoi" ]]; then
     chezmoi source-path
-  elif [[ "$p" != /* && "$p" != ./* && "$p" != ../* ]]; then
+  elif [[ "$p" != /* && "$p" != ./* && "$p" != . && "$p" != ../* && "$p" != .. ]]; then
     if [[ "$p" == "$main_dir_name" ]]; then
       printf '%s\n' "$main_dir"
     elif [[ "$p" == "$main_dir_name"/* ]]; then
@@ -99,7 +99,7 @@ _dev_path_completion() {
 
   compopt -o filenames -o nospace 2>/dev/null
 
-  if [[ -z "$cur" || ( "$cur" != /* && "$cur" != ./* && "$cur" != ../* && "$cur" != */* ) ]]; then
+  if [[ -z "$cur" || ( "$cur" != /* && "$cur" != ./* && "$cur" != ../* && "$cur" != . && "$cur" != .. && "$cur" != */* ) ]]; then
     local -a vwords=("chezmoi" "dev/" "${dev_dir_name}/" "${main_dir_name}/")
     COMPREPLY+=($(compgen -W "${vwords[*]}" -- "$cur"))
   fi
@@ -307,10 +307,8 @@ gitmain() {
 
 # git open repo in browser
 gitopen() {
-    local dir="."
-    if [[ ! -z "$1" ]]; then
-      dir="$(_dev_path "$1")"
-    fi
+    local dir="${1:-.}"
+    dir="$(_dev_path "$dir")"
     
     # Verify it's a git repository
     if [[ ! -d "$dir/.git" ]]; then
