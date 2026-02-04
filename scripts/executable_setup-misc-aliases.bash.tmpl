@@ -307,8 +307,10 @@ gitmain() {
 
 # git open repo in browser
 gitopen() {
-    local dir="${1:-.}"
-    dir="$(_dev_path "$dir")"
+    local dir="."
+    if [[ ! -z "$1" ]]; then
+      dir="$(_dev_path "$1")"
+    fi
     
     # Verify it's a git repository
     if [[ ! -d "$dir/.git" ]]; then
