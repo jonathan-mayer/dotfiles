@@ -177,6 +177,16 @@ code() {
     return
   fi
 
+  # open all paths in one window on -r/--reuse-window
+  local f
+  for f in "${flags[@]}"; do
+    if [[ "$f" == "-r" || "$f" == "--reuse-window" ]]; then
+      command code "${flags[@]}" "${paths[@]}"
+      return $?
+    fi
+  done
+
+  # open every path in separate windows
   local rc=0
   local p
   for p in "${paths[@]}"; do
