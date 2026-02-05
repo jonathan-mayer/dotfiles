@@ -306,7 +306,7 @@ gitmain() {
 }
 
 # git open repo in browser
-gitopen() {
+gitopen() { # TODO allow opening multiple at once
     local dir="${1:-.}"
     dir="$(_dev_path "$dir")"
     
