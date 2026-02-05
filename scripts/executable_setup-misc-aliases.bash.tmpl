@@ -89,7 +89,7 @@ _dev_path() {
     printf '%s\n' "$p"
   fi
 }
-_dev_path_completion() {
+_dev_path_completion() { # TODO fallback to normal file completion
   local cur
   cur="${COMP_WORDS[COMP_CWORD]}"
 
