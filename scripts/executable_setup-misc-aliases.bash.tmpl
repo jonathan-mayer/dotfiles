@@ -306,38 +306,51 @@ gitmain() {
 }
 
 # git open repo in browser
-gitopen() { # TODO allow opening multiple at once
-    local dir="${1:-.}"
-    dir="$(_dev_path "$dir")"
-    
-    # Verify it's a git repository
-    if [[ ! -d "$dir/.git" ]]; then
-        echo "Error: '$dir' is not a git repository." >&2
-        return 1
-    fi
+gitopen() {
+    local dirs=("$@")
+    [[ ${#dirs[@]} -eq 0 ]] && dirs=(".")
 
-    # Save current directory and switch to target
-    local orig_dir="$(pwd)"
-    cd "$dir" || return 1
+    local orig_dir
+    orig_dir="$(pwd)"
 
-    # normalize repo url
-    local repo_url
-    repo_url=$(git remote get-url origin)
+    for dir in "${dirs[@]}"; do
+        dir="$(_dev_path "$dir")"
 
-    # normalize ssh (with and without protocol) and http urls
-    if [[ "$repo_url" =~ ^ssh://git@(.+)\.git$ ]]; then
-        repo_url="https://${BASH_REMATCH[1]}"
-    elif [[ "$repo_url" =~ ^git@([^:]+):(.+)\.git$ ]]; then
-        repo_url="https://${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
-    elif [[ "$repo_url" =~ ^https://.+\.git$ ]]; then
-        repo_url="${repo_url%.git}"
-    fi
+        # Verify it's a git repository
+        if [[ ! -d "$dir/.git" ]]; then
+            echo "Error: '$dir' is not a git repository." >&2
+            continue
+        fi
+
+        cd "$dir" || {
+            echo "Error: cannot cd into '$dir'." >&2
+            continue
+        }
+
+        local repo_url
+        repo_url="$(git remote get-url origin 2>/dev/null)"
+
+        if [[ -z "$repo_url" ]]; then
+            echo "Error: no origin remote in '$dir'." >&2
+            cd "$orig_dir"
+            continue
+        fi
+
+        # normalize repo url
+        if [[ "$repo_url" =~ ^ssh://git@(.+)\.git$ ]]; then
+            repo_url="https://${BASH_REMATCH[1]}"
+        elif [[ "$repo_url" =~ ^git@([^:]+):(.+)\.git$ ]]; then
+            repo_url="https://${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+        elif [[ "$repo_url" =~ ^https://.+\.git$ ]]; then
+            repo_url="${repo_url%.git}"
+        fi
 
     # Open Repo in browser
-    browser "$repo_url"
+        browser "$repo_url"
 
     # return to original directory
-    cd "$orig_dir"
+        cd "$orig_dir" || return 1
+    done
 }
 complete -F _dev_path_completion gitopen
 
