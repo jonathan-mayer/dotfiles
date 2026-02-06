@@ -630,7 +630,7 @@ check_on_stale_branch() {
   }
 
   # compute stale branches
-  git fetch -p # prune all no longer existing remote refs
+  git fetch -p >/dev/null # prune all no longer existing remote refs
   local stale
   stale="$(git for-each-ref --format '%(refname) track:%(upstream:track) upstream:%(upstream:short)' refs/heads \
     | awk '$2 == "track:[gone]" || $3 == "upstream:" {sub("refs/heads/", "", $1); print $1}')"
