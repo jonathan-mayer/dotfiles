@@ -58,12 +58,21 @@ alias k=kubectl
 # copy dir alias
 alias cp="cp -r"
 
+# set up dev and main dir paths
+export gitlab_group={{ .dev.gitlab_group | quote }}
+_dev_dir={{ .dev.dev_path | quote }} # raw input
+_main_dir={{ .dev.main_path | quote }} # raw input
+# default paths to each other if not set
+export dev_dir="${_dev_dir:-$_main_dir}" 
+export main_dir="${_main_dir:-$_dev_dir}"
+# make paths absolute
+export dev_dir="${dev_dir/#\~/$HOME}" 
+export main_dir="${main_dir/#\~/$HOME}"
+# create basename variables for dirs
+export dev_dir_name="$(basename -- "$dev_dir")" 
+export main_dir_name="$(basename -- "$main_dir")" 
+
 # dev path roots helper
-export dev_dir="$HOME/dev"
-export main_dir="$HOME/dev/ssp"
-export dev_dir_name="$(basename -- "$dev_dir")"
-export main_dir_name="$(basename -- "$main_dir")"
-export gitlab_group="ssp"
 _dev_path() {
   local p="$1"
   if [[ "$p" == "chezmoi" ]]; then
@@ -221,7 +230,7 @@ code() {
 complete -F _dev_path_completion code
 
 # glab clone group alias
-alias dev-reclone="cd $(dirname $main_dir) && glab repo clone --group $gitlab_group --preserve-namespace --paginate $(basename $main_dir); cd -"
+alias dev-reclone="cd $(dirname $main_dir) && glab repo clone --group "$gitlab_group" --preserve-namespace --paginate $(basename $main_dir); cd -"
 alias dev-clone="dev-reclone"
 
 # create repo alias in $dev_dir
@@ -664,13 +673,13 @@ check_behind_upstream() {
   # Must have an upstream
   local upstream
   upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)" || {
-    echo "Branch '$branch' has no upstream configured."
+    #echo "Branch '$branch' has no upstream configured."
     return 0
   }
 
   # Working tree must be completely clean (no staged/unstaged/untracked)
   if [ -n "$(git status --porcelain)" ]; then
-    echo "Working tree is not clean; not pulling."
+    #echo "Working tree is not clean; not pulling."
     return 0
   fi
 

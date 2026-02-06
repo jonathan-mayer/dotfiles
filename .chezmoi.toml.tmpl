@@ -5,6 +5,10 @@
 
 {{- $remote := promptBoolOnce . "remote" "Is this a remote machine? (y/n)" -}}
 
+{{- $gitlab_group := promptStringOnce . "dev.gitlab_group" "Base Gitlab group" -}}
+{{- $dev_path := promptStringOnce . "dev.dev_path" "Path to dev dir" -}}
+{{- $main_path := promptStringOnce . "dev.main_path" "Path to main development dir" -}}
+
 {{- $proxy := promptStringOnce . "proxy" "Proxy URL [none]" -}}
 {{- $no_proxy := "" -}}
 {{- if ne $proxy "" -}}
@@ -94,6 +98,10 @@
     username = {{ .username | quote }}
     password = {{ .password | quote }}
 {{- end }}
+[ data.dev ]
+    gitlab_group = {{ $gitlab_group | quote }}
+    dev_path = {{ $dev_path | quote }}
+    main_path = {{ $main_path | quote }}
 [edit]
     command = "code"
     args = "--wait"
