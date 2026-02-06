@@ -630,7 +630,7 @@ check_on_stale_branch() {
   }
 
   # compute stale branches
-  git fetch -p >/dev/null # prune all no longer existing remote refs
+  git fetch -p >/dev/null 2>&1 # prune all no longer existing remote refs
   local stale
   stale="$(git for-each-ref --format '%(refname) track:%(upstream:track) upstream:%(upstream:short)' refs/heads \
     | awk '$2 == "track:[gone]" || $3 == "upstream:" {sub("refs/heads/", "", $1); print $1}')"
@@ -651,3 +651,40 @@ check_on_stale_branch() {
   fi
 }
 check_on_stale_branch
+
+# check if user is behind upstream and should pull
+check_behind_upstream() {
+  # Must be on a branch (not detached HEAD)
+  local branch
+  branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" || {
+    echo "Not on a branch (detached HEAD)."
+    return 0
+  }
+
+  # Must have an upstream
+  local upstream
+  upstream="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)" || {
+    echo "Branch '$branch' has no upstream configured."
+    return 0
+  }
+
+  # Working tree must be completely clean (no staged/unstaged/untracked)
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "Working tree is not clean; not pulling."
+    return 0
+  fi
+
+  # Make sure we know whether we're behind (fetch is needed for an up-to-date comparison)
+  git fetch --quiet || return $?
+
+  # Determine behind/ahead vs upstream
+  local behind ahead
+  read -r behind ahead < <(git rev-list --left-right --count "${upstream}...HEAD")
+
+  # Pull only if behind > 0 and ahead == 0
+  if [ "${behind:-0}" -gt 0 ] && [ "${ahead:-0}" -eq 0 ]; then
+    git pull --ff-only >/dev/null
+    echo "Branch '$branch' was behind '$upstream' by $behind commit(s). Changes were pulled."
+  fi
+}
+check_behind_upstream
