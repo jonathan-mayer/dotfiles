@@ -161,6 +161,29 @@ _dev_path_completion() {
 
 # vscode cli wrapper alias
 code() {
+  resolve_workspace_path() {
+  local input_path="$1"
+
+    # If it's not a directory, return as-is
+    if [[ ! -d "$input_path" ]]; then
+      printf '%s\n' "$input_path"
+      return 0
+    fi
+
+    # Find *.code-workspace files directly inside the directory
+    local workspace_files=()
+    while IFS= read -r -d '' file; do
+      workspace_files+=("$file")
+    done < <(find "$input_path" -maxdepth 1 -type f -name '*.code-workspace' -print0)
+
+    # If exactly one workspace file exists, return it
+    if [[ "${#workspace_files[@]}" -eq 1 ]]; then
+      printf '%s\n' "${workspace_files[0]}"
+    else
+      printf '%s\n' "$input_path"
+    fi
+  }
+
   local -a flags=()
   local -a paths=()
 
@@ -168,7 +191,7 @@ code() {
     if [[ "$arg" == -* ]]; then
       flags+=("$arg")
     else
-      paths+=("$(_dev_path "$arg")")
+      paths+=("$(resolve_workspace_path "$(_dev_path "$arg")")")
     fi
   done
 
