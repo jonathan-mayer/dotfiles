@@ -241,6 +241,16 @@ dev-rm() {
 }
 complete -F _dev_path_completion dev-rm
 
+# ls in $dev_dir
+dev-ls() {
+  local paths=()
+  for arg in "$@"; do
+    paths+=("$(_dev_path "$arg")")
+  done
+  ls -la "${paths[@]}"
+}
+complete -F _dev_path_completion dev-ls
+
 # cp in $dev_dir
 dev-cp() {
   local paths=()
