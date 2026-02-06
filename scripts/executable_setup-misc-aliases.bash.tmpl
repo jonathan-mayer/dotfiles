@@ -657,7 +657,7 @@ check_behind_upstream() {
   # Must be on a branch (not detached HEAD)
   local branch
   branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" || {
-    echo "Not on a branch (detached HEAD)."
+    #echo "Not on a branch (detached HEAD)."
     return 0
   }
 
