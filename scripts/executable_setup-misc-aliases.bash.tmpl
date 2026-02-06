@@ -89,7 +89,7 @@ _dev_path() {
     printf '%s\n' "$p"
   fi
 }
-_dev_path_completion() { # TODO fallback to normal file completion
+_dev_path_completion() {
   local cur
   cur="${COMP_WORDS[COMP_CWORD]}"
 
@@ -99,8 +99,8 @@ _dev_path_completion() { # TODO fallback to normal file completion
 
   compopt -o filenames -o nospace 2>/dev/null
 
-  if [[ -z "$cur" || ( "$cur" != /* && "$cur" != ./* && "$cur" != ../* && "$cur" != . && "$cur" != .. && "$cur" != */* ) ]]; then
-    local -a vwords=("chezmoi" "dev/" "${dev_dir_name}/" "${main_dir_name}/")
+  if [[ -z "$cur" || ( "$cur" != /* && "$cur" != ./* && "$cur" != ../* && "$cur" != */* ) ]]; then
+    local -a vwords=("chezmoi" "dev/" "${dev_dir_name}/" "${main_dir_name}/" "\~" "." "..")
     COMPREPLY+=($(compgen -W "${vwords[*]}" -- "$cur"))
   fi
 
@@ -135,8 +135,8 @@ _dev_path_completion() { # TODO fallback to normal file completion
   fi
 
   # Absolute / explicit relative paths: normal filename completion
-  if [[ "$cur" == /* || "$cur" == ./* || "$cur" == ../* ]]; then
-    COMPREPLY=($(compgen -f -- "$cur"))
+  if [[ "$cur" == /* || "$cur" == ./* || "$cur" == ../* || "$cur" == ~* || "$cur" == ~ || "$cur" == . || "$cur" == .. ]]; then
+    COMPREPLY+=($(compgen -f -- "$cur"))
     return 0
   fi
 
