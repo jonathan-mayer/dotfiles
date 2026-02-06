@@ -609,3 +609,35 @@ reconcilecomponent() {
   flux reconcile kustomization --with-source $component
   flux reconcile helmrelease --with-source -n $component $component
 }
+
+# check if user is on stale branch
+check_on_stale_branch() {
+  # current branch (empty if detached HEAD)
+  local current
+  current="$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" || {
+    #echo "Not on a branch (detached HEAD)."
+    return 0
+  }
+
+  # compute stale branches using your logic
+  local stale
+  stale="$(git for-each-ref --format '%(refname) track:%(upstream:track) upstream:%(upstream:short)' refs/heads \
+    | awk '$2 == "track:[gone]" || $3 == "upstream:" {sub("refs/heads/", "", $1); print $1}')"
+
+  # is current branch in stale list?
+  if printf '%s\n' "$stale" | grep -Fxq -- "$current"; then
+    echo "Current branch '$current' is stale (upstream gone or not set)."
+    printf "Checkout main now? [Y/n] "
+    local reply
+    IFS= read -r reply
+    case "$reply" in
+      [nN]|[nN][oO])
+        echo "Keeping current branch."
+        ;;
+      *)
+        gitmain
+        ;;
+    esac
+  fi
+}
+check_on_stale_branch
