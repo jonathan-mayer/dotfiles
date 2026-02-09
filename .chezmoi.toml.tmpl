@@ -64,7 +64,7 @@
   ) -}}
 {{- end -}}
 {{- end -}}
-{{- $docker_mirror := promptStringOnce . "docker.docker_mirror" "Docker Mirror" -}}
+{{- $docker_mirror := promptStringOnce . "docker.mirror" "Docker Mirror" -}}
 
 [data]
     name = {{ $name | quote }}
