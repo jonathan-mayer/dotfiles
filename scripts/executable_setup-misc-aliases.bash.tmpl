@@ -32,12 +32,15 @@ dotenv() {
 }
 
 # Kubernetes Context Alias
+export default_ctx={{ .default_ctx | quote }}
 ctx() {
     if [ $# -eq 0 ]; then # command was run without arguments
         kubectl config current-context 2>/dev/null
         kubectl config get-contexts
     elif [ -z "$1" ]; then
         kubectl config unset current-context
+    elif [ "$1" == "-" ]; then
+        kubectl config use-context "$default_ctx"
     else
         kubectl config use-context "$1"
     fi
@@ -47,6 +50,71 @@ _ctx() {
     COMPREPLY=( $(compgen -W "$(kubectl config get-contexts -o name)" -- "${COMP_WORDS[1]}") )
 }
 complete -F _ctx ctx
+
+inctx() {
+  local target_ctx="$1"
+  shift
+
+  if [[ -z "$target_ctx" ]]; then
+    echo "usage: inctx <ctx> <command...>" >&2
+    return 2
+  fi
+
+  ctx "$target_ctx" || return 1
+
+  "$@"
+  local status=$?
+
+  ctx - || return 1
+
+  return $status
+}
+_inctx() {
+  if [[ $COMP_CWORD -eq 1 ]]; then
+    COMPREPLY=(
+      $(compgen -W "$(kubectl config get-contexts -o name 2>/dev/null)" -- "${COMP_WORDS[1]}")
+    )
+    return 0
+  fi
+
+  compopt -o default -o bashdefault 2>/dev/null
+  COMPREPLY=()
+  return 0
+}
+complete -F _inctx inctx
+
+incd() {
+  local target_dir="$1"
+  local target_dir="$(_dev_path "$1")"
+  shift
+
+  if [[ -z "$target_dir" ]]; then
+    echo "usage: incd <dir> <command...>" >&2
+    return 2
+  fi
+
+  pushd "$target_dir" >/dev/null || return 1
+
+  "$@"
+  local status=$?
+
+  # Return to previous dir
+  popd >/dev/null || return 1
+
+  return $status
+}
+_incd() {
+  if [[ $COMP_CWORD -eq 1 ]]; then
+    _dev_path_completion
+    return 0
+  fi
+
+  compopt -o default -o bashdefault 2>/dev/null
+  COMPREPLY=()
+  return 0
+}
+complete -F _incd incd
+
 
 # ls Aliases
 alias ll="ls -alF"
@@ -628,12 +696,36 @@ complete -F _gittag_complete gittag
 # flux reconcile ssp component
 reconcilecomponent() {
   local component="${1:-$(basename "$(pwd)")}"
-  echo "Reconciling: $component"
+  local context="${2:--}"
+  ctx "$context"
+  echo "Reconciling '$component' in '$context'"
   flux reconcile kustomization --with-source gitrepositories
   flux reconcile kustomization --with-source ssp-namespaces
   flux reconcile kustomization --with-source $component
-  flux reconcile helmrelease --with-source -n $component $component
+  flux reconcile helmrelease --with-source -n $component $component 2>/dev/null # optional
+  ctx -
 }
+_reconcilecomponent_completion() {
+  local cur prev opts
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+  if [[ $COMP_CWORD -eq 1 ]]; then
+    local opts
+
+    if command -v flux >/dev/null 2>&1; then
+      opts=$(flux get kustomizations --no-header 2>/dev/null | awk '{print $1}')
+    fi
+
+    COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
+    return 0
+  elif [[ $COMP_CWORD -eq 2 ]]; then
+    COMPREPLY=( $(compgen -W "$(kubectl config get-contexts -o name)" -- "${COMP_WORDS[2]}") )
+  fi
+}
+complete -F _reconcilecomponent_completion reconcilecomponent
+
 
 # check if user is on stale branch
 check_on_stale_branch() {

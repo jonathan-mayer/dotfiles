@@ -66,6 +66,8 @@
 {{- end -}}
 {{- $docker_mirror := promptStringOnce . "docker.mirror" "Docker Mirror" -}}
 
+{{- $default_ctx := promptStringOnce . "default_ctx" "Default Kubeconfig Context" -}}
+
 [data]
     name = {{ $name | quote }}
     email = {{ $email | quote }}
@@ -73,6 +75,7 @@
     proxy = {{ $proxy | quote }}
     no_proxy = {{ $no_proxy | quote }}
     remote = {{ $remote }}
+    default_ctx = {{ $default_ctx | quote }}
 [data.secrets]
     ai = {{ $ai | quote }}
     octoprint_key = {{ $octoprint_key | quote }}
