@@ -77,7 +77,7 @@ _dev_path() {
   local p="$1"
   if [[ "$p" == "chezmoi" ]]; then
     chezmoi source-path
-  elif [[ "$p" != /* && "$p" != ./* && "$p" != . && "$p" != ../* && "$p" != .. ]]; then
+  elif [[ "$p" != - && "$p" != /* && "$p" != ./* && "$p" != . && "$p" != ../* && "$p" != .. ]]; then
     if [[ "$p" == "$main_dir_name" ]]; then
       printf '%s\n' "$main_dir"
     elif [[ "$p" == "$main_dir_name"/* ]]; then
@@ -297,8 +297,14 @@ dev-cd() {
     paths+=("$(_dev_path "$arg")")
   done
   cd "${paths[@]}"
+
+  # check git repo
+  check_on_stale_branch
+  check_behind_upstream
 }
 complete -F _dev_path_completion dev-cd
+alias cd="dev-cd"
+complete -F _dev_path_completion cd
 
 # list repo aliases in $dev_dir
 dev-list-aliases() {
