@@ -736,7 +736,7 @@ check_on_stale_branch() {
     return 0
   }
 
-  if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
+  if [[ "$current" == "main" || "$current" == "master" ]]; then
     return 0
   fi
 
