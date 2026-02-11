@@ -736,6 +736,10 @@ check_on_stale_branch() {
     return 0
   }
 
+  if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
+    return 0
+  fi
+
   # compute stale branches
   git fetch -p >/dev/null 2>&1 # prune all no longer existing remote refs
   local stale
