@@ -255,7 +255,7 @@ makespace() {
   echo "These Directories are using more than 1GiB:"
   echo
 
-  du -x -B1 -d 3 / 2>/dev/null \
+  du -x -B1 / 2>/dev/null \
     | awk '$1 > 1073741824 { printf "%s\t%s\n", $2, $1 }' \
     | sort -k2 -nr \
     | while read -r path size; do
