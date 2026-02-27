@@ -371,8 +371,6 @@ dev-cd() {
   check_behind_upstream
 }
 complete -F _dev_path_completion dev-cd
-alias cd="dev-cd"
-complete -F _dev_path_completion cd
 
 # list repo aliases in $dev_dir
 dev-list-aliases() {
