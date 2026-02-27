@@ -143,25 +143,29 @@ export main_dir_name="$(basename -- "$main_dir")"
 # dev path roots helper
 _dev_path() {
   local p="$1"
+  local resolved=""
   if [[ "$p" == "chezmoi" ]]; then
-    chezmoi source-path
+    resolved="$(chezmoi source-path)"
   elif [[ "$p" != - && "$p" != /* && "$p" != ./* && "$p" != . && "$p" != ../* && "$p" != .. ]]; then
     if [[ "$p" == "$main_dir_name" ]]; then
-      printf '%s\n' "$main_dir"
+      resolved="$main_dir"
     elif [[ "$p" == "$main_dir_name"/* ]]; then
-      p="${p#"$main_dir_name"/}"
-      printf '%s\n' "$main_dir/$p"
-    elif [[  "$p" == dev/* ]]; then
-      p="${p#dev/}"
-      printf '%s\n' "$dev_dir/$p"
+      resolved="$main_dir/${p#"$main_dir_name"/}"
+    elif [[ "$p" == dev/* ]]; then
+      resolved="$dev_dir/${p#dev/}"
     elif [[ "$p" == "$dev_dir_name"/* ]]; then
-      p="${p#"$dev_dir_name"/}"
-      printf '%s\n' "$dev_dir/$p"
+      resolved="$dev_dir/${p#"$dev_dir_name"/}"
     elif [[ "$p" == dev || "$p" == "$dev_dir_name" ]]; then
-      printf '%s\n' "$dev_dir"
+      resolved="$dev_dir"
     else
-      printf '%s\n' "$main_dir/$p"
+      resolved="$main_dir/$p"
     fi
+  else
+    resolved="$p"
+  fi
+
+  if [[ -e "$resolved" ]]; then
+    printf '%s\n' "$resolved"
   else
     printf '%s\n' "$p"
   fi
@@ -173,18 +177,30 @@ _dev_path_completion() {
   [[ "$cur" == -* ]] && return 0
 
   COMPREPLY=()
-
   compopt -o filenames -o nospace 2>/dev/null
 
+  local IFS=$'\n'
+  local -a pwd_matches
+  pwd_matches=($(compgen -f -- "$cur"))
+
+  _add_unique() {
+    local item
+    for item in "$@"; do
+      [[ " ${COMPREPLY[*]} " == *" $item "* ]] || COMPREPLY+=("$item")
+    done
+  }
+
+  _add_unique "${pwd_matches[@]}"
+
+  # Offer virtual root tokens at top level
   if [[ -z "$cur" || ( "$cur" != /* && "$cur" != ./* && "$cur" != ../* && "$cur" != */* ) ]]; then
-    local -a vwords=("chezmoi" "dev/" "${dev_dir_name}/" "${main_dir_name}/" "\~" "." "..")
-    COMPREPLY+=($(compgen -W "${vwords[*]}" -- "$cur"))
+    local -a vwords=("chezmoi" "dev/" "${dev_dir_name}/" "${main_dir_name}/" "~" "." "..")
+    _add_unique $(compgen -W "${vwords[*]}" -- "$cur")
   fi
 
   _dev_path_completion_under() {
     local base="$1" vprefix="$2" rest="$3"
     local m out real
-    local IFS=$'\n'
 
     for m in $(compgen -f -- "$base/$rest"); do
       real="$m"
@@ -192,29 +208,18 @@ _dev_path_completion() {
       out="${m#$base/}"
       out="${out#$base}"
 
-      # Append slash if the real path is a directory
-      if [[ -d "$real" ]]; then
-        out="${out}/"
-      fi
+      [[ -d "$real" ]] && out="${out}/"
 
       if [[ -n "$vprefix" ]]; then
-        COMPREPLY+=("$vprefix/$out")
+        _add_unique "$vprefix/$out"
       else
-        COMPREPLY+=("$out")
+        _add_unique "$out"
       fi
     done
   }
 
-  # Special token "chezmoi" is exact-only in the wrapper
   if [[ "$cur" == chezmoi* ]]; then
-    COMPREPLY=($(compgen -W "chezmoi" -- "$cur"))
-    return 0
-  fi
-
-  # Absolute / explicit relative paths: normal filename completion
-  if [[ "$cur" == /* || "$cur" == ./* || "$cur" == ../* || "$cur" == ~* || "$cur" == ~ || "$cur" == . || "$cur" == .. ]]; then
-    COMPREPLY+=($(compgen -f -- "$cur"))
-    return 0
+    _add_unique $(compgen -W "chezmoi" -- "$cur")
   fi
 
   case "$cur" in
@@ -228,7 +233,6 @@ _dev_path_completion() {
       _dev_path_completion_under "$main_dir" "$main_dir_name" "${cur#"$main_dir_name"/}"
       ;;
     *)
-      # Default: complete relative to main_dir with no virtual prefix
       _dev_path_completion_under "$main_dir" "" "$cur"
       ;;
   esac
@@ -280,7 +284,7 @@ code() {
   # open all paths in one window on -r/--reuse-window
   local f
   for f in "${flags[@]}"; do
-    if [[ "$f" == "-r" || "$f" == "--reuse-window" ]]; then
+    if [[ "$f" == "-r" || "$f" == "--reuse-window" || "$f" == "-n" || "$f" == "--new-window" ]]; then
       command code "${flags[@]}" "${paths[@]}"
       return $?
     fi
