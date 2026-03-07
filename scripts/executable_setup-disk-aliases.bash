@@ -29,14 +29,54 @@ makespace() {
   echo "Starting disk cleanup"
   echo
 
-  # TODO ~/.cache folder cleanup
-  # TODO add how much disk space can be saved before deleting anything
+  # ------------------------------------------------------------------
+  # ~/.cache folder cleanup
+  # ------------------------------------------------------------------
+  if [[ -d "$HOME/.cache" ]]; then
+    echo "Checking ~/.cache for cleanup opportunities..."
+    echo
+
+    local cache_total=0
+    local cache_items=()
+
+    while IFS= read -r -d '' entry; do
+      size=$(du -sb "$entry" 2>/dev/null | cut -f1)
+      cache_total=$((cache_total + size))
+      cache_items+=("$entry" "$size")
+    done < <(find "$HOME/.cache" -mindepth 1 -maxdepth 1 -print0 2>/dev/null)
+
+    if [[ $cache_total -gt 0 ]]; then
+      echo "Total cache size: $(human "$cache_total")"
+      echo
+      echo "Cache directories:"
+      for ((i=0; i<${#cache_items[@]}; i+=2)); do
+        printf "  %-50s %10s\n" "${cache_items[i]}" "$(human "${cache_items[i+1]}")"
+      done
+      echo
+
+      if ask "Clean ~/.cache ($(human "$cache_total"))?"; then
+        before=$(disk_used_bytes)
+        rm -rf "$HOME/.cache"/*
+        after=$(disk_used_bytes)
+        freed=$((before-after))
+        echo "Freed approx $(human "$freed")"
+        echo
+      fi
+    fi
+  fi
 
   # ------------------------------------------------------------------
   # Docker: explicit per-item cleanup
   # ------------------------------------------------------------------
   if command -v docker >/dev/null 2>&1; then
+    docker_potential=0
+    stopped_size=$(docker ps -a --filter status=exited -q 2>/dev/null | xargs -r docker inspect --format='{{.SizeRw}}' 2>/dev/null | awk '{sum+=$1} END {print sum+0}')
+    images_size=$(docker images -f dangling=true -q 2>/dev/null | xargs -r docker inspect --format='{{.Size}}' 2>/dev/null | awk '{sum+=$1} END {print sum+0}')
+    volumes_size=$(docker volume ls -qf dangling=true 2>/dev/null | xargs -r docker system df -v 2>/dev/null | grep -A1 'Total' | tail -1 | awk '{print $3}' || echo 0)
+    docker_potential=$((stopped_size + images_size + volumes_size))
+    
     echo "Docker cleanup (explicit, item-by-item)"
+    echo "Potential savings: $(human "$docker_potential")"
     echo
   
     # --------------------------------------------------------------
@@ -175,13 +215,20 @@ makespace() {
   # npm cache
   # ------------------------------------------------------------------
   if command -v npm >/dev/null 2>&1; then
-    if ask "Clean npm cache?"; then
-      before=$(disk_used_bytes)
-      npm cache clean --force
-      after=$(disk_used_bytes)
-      freed=$((before-after))
-      echo "Freed approx $(human "$freed")"
-      echo
+    npm_cache_dir="${HOME}/.npm"
+    npm_potential=0
+    if [[ -d "$npm_cache_dir" ]]; then
+      npm_potential=$(du -sb "$npm_cache_dir" 2>/dev/null | cut -f1)
+    fi
+    if [[ $npm_potential -gt 0 ]]; then
+      if ask "Clean npm cache ($(human "$npm_potential"))?"; then
+        before=$(disk_used_bytes)
+        npm cache clean --force
+        after=$(disk_used_bytes)
+        freed=$((before-after))
+        echo "Freed approx $(human "$freed")"
+        echo
+      fi
     fi
   fi
 
@@ -189,13 +236,20 @@ makespace() {
   # Go module cache
   # ------------------------------------------------------------------
   if command -v go >/dev/null 2>&1; then
-    if ask "Clean Go module cache?"; then
-      before=$(disk_used_bytes)
-      go clean -modcache
-      after=$(disk_used_bytes)
-      freed=$((before-after))
-      echo "Freed approx $(human "$freed")"
-      echo
+    go_cache_dir=$(go env GOMODCACHE)
+    go_potential=0
+    if [[ -d "$go_cache_dir" ]]; then
+      go_potential=$(du -sb "$go_cache_dir" 2>/dev/null | cut -f1)
+    fi
+    if [[ $go_potential -gt 0 ]]; then
+      if ask "Clean Go module cache ($(human "$go_potential"))?"; then
+        before=$(disk_used_bytes)
+        go clean -modcache
+        after=$(disk_used_bytes)
+        freed=$((before-after))
+        echo "Freed approx $(human "$freed")"
+        echo
+      fi
     fi
   fi
 
@@ -227,13 +281,16 @@ makespace() {
   # Homebrew cleanup
   # ------------------------------------------------------------------
   if command -v brew >/dev/null 2>&1; then
-    if ask "Run brew cleanup?"; then
-      before=$(disk_used_bytes)
-      brew cleanup
-      after=$(disk_used_bytes)
-      freed=$((before-after))
-      echo "Freed approx $(human "$freed")"
-      echo
+    brew_potential=$(brew cleanup -n 2>/dev/null | grep -E 'would free' | grep -oE '[0-9.]+[KMGT]?' | head -1)
+    if [[ -n "$brew_potential" ]]; then
+      if ask "Run brew cleanup (up to $brew_potential)?"; then
+        before=$(disk_used_bytes)
+        brew cleanup
+        after=$(disk_used_bytes)
+        freed=$((before-after))
+        echo "Freed approx $(human "$freed")"
+        echo
+      fi
     fi
   fi
 
