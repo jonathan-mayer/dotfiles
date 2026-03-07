@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+MUSIC_URL={{ .idle_music_url | quote }}
+MUSIC_URL_ESCAPED=$(printf '%s\n' "$MUSIC_URL" | sed -e 's/[][\/.^$*+?|(){}]/\\&/g')
+
+for cmd in pactl mpv pgrep pkill awk; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "$cmd is not installed. Please install these before usage."
+        exit 0
+    fi
+done
+
+get_active_audio() {
+    pactl list sink-inputs | awk '
+        BEGIN { RS="Sink Input #" }
+        {
+            if ($0 ~ /application.name/ &&
+                $0 ~ /Corked: no/ &&
+                $0 !~ /application.name = "mpv"/)
+            {
+                count++
+            }
+        }
+        END { print count+0 }
+    '
+}
+
+while true; do
+    ACTIVE=$(get_active_audio)
+    #echo "Audio Streams: $ACTIVE"
+
+    if [ "$ACTIVE" -eq 0 ]; then
+        if ! pgrep -f "mpv.*$MUSIC_URL_ESCAPED" >/dev/null; then
+            # Start MPV with fade-in
+            mpv --volume=15 --no-video "$MUSIC_URL" &
+        fi
+    else
+        pkill -f "mpv.*$MUSIC_URL_ESCAPED"
+    fi
+
+    sleep 2
+done

@@ -1,0 +1,13 @@
+[Unit]
+Description=Lofi Auto Music Daemon
+After=graphical.target
+
+[Service]
+ExecStart=%h/.local/bin/idle-music-player.bash
+Restart=on-failure
+RestartSec=5s
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=%h/.run/user/1000
+
+[Install]
+WantedBy=default.target

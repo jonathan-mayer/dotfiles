@@ -5,6 +5,11 @@
 
 {{- $remote := promptBoolOnce . "remote" "Is this a remote machine? (y/n)" -}}
 
+{{- $idle_music_url := "" -}}
+{{- if not $remote -}}
+{{- $idle_music_url = promptStringOnce . "idle_music_url" "Idle Music URL" -}}
+{{- end -}}
+
 {{- $gitlab_group := promptStringOnce . "dev.gitlab_group" "Base Gitlab group" -}}
 {{- $dev_path := promptStringOnce . "dev.dev_path" "Path to dev dir" -}}
 {{- $main_path := promptStringOnce . "dev.main_path" "Path to main development dir" -}}
@@ -76,6 +81,7 @@
     no_proxy = {{ $no_proxy | quote }}
     remote = {{ $remote }}
     default_ctx = {{ $default_ctx | quote }}
+    idle_music_url = {{ $idle_music_url | quote }}
 [data.secrets]
     ai = {{ $ai | quote }}
     octoprint_key = {{ $octoprint_key | quote }}

@@ -11,6 +11,8 @@ scripts/setup-proxy.bash
 .config/PrusaSlicer
 .config/filezilla/sitemanager.xml
 .m2
+.config/systemd/user/idle-music-player.service
+.local/bin/idle-music-player.bash
 {{- end }}
 {{- if or (not (hasKey . "maven")) (not (hasKey .maven "repos")) }}
 .m2
