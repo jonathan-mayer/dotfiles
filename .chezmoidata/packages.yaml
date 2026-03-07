@@ -1,135 +1,482 @@
 # These dont currently get applied automatically, this currently is just a place to keep track of installed packages
+
+sources:
+  brew:
+    command: "brew install $name"
+    condition: "command -v brew" # will be evaluated as [[ $condition ]]
+    priority: 5 # prefer brew
+  pacman:
+    command: "sudo pacman -S $name"
+    condition: "&& command -v pacman"
+    priority: 10
+  apt:
+    command: "sudo apt install $name"
+    condition: "command -v apt"
+    priority: 10
+  dnf:
+    command: "sudo dnf install $name"
+    condition: "command -v dnf"
+    priority: 15
+  yay:
+    command: "yay -S $name"
+    condition: "command -v yay"
+    priority: 15
+
 packages:
-  common:
-    brew:
-      - "fluxcd/tap/flux"
-      - "golangci-lint"
-      - "kind"
-      - "protobuf"
-      - "gcc"
-      - "go"
-      - "derailed/k9s/k9s"
-      - "kubernetes-cli"
-      - "helm"
-      - "pre-commit"
-      - "btop"
-      - "chezmoi"
-      - "docker"
-      - "docker-compose"
-      - "docker-buildx"
-      - "jq"
-      - "yq"
-      - "iputils"
-      - "vim"
-      - "node"
-      - "nvtop"
-      - "ollama"
-      - "tree"
-      - "yt-dlp"
-      - "glab"
-      - "renovate"
-      - "rust"
-      - "nvm"
-    cargo:
-      - "gitlab-tui"
-    platform:
-      - arch:
-          pacman: jdk-openjdk
-      - arch:
-          pacman: jdk8-openjdk
-      - arch:
-          pacman: jdk21-openjdk
-      - arch:
-          pacman: jdk17-openjdk
-      - arch:
-          pacman: lshw
-  screen:
-    platform:
-      - arch:
-          yay: caffeine-ng
-      - arch:
-          pacman: discord
-      - arch:
-          pacman: filezilla
-      - arch:
-          pacman: firefox
-      - arch:
-          pacman: ghidra
-      - arch:
-          pacman: gnome-calculator
-      - arch:
-          pacman: gnome-clocks
-      - arch:
-          pacman: gnome-console
-      - arch:
-          pacman: gnome-disk-utility
-      - arch:
-          pacman: gnome-logs
-      - arch:
-          pacman: gnome-system-monitor
-      - arch:
-          pacman: gnome-text-editor
-      - arch:
-          pacman: gnome-boxes
-      - arch:
-          pacman: simple-scan
-      - arch:
-          pacman: virtualbox
-      - arch:
-          pacman: inkscape
-      - arch:
-          pacman: intellij-idea-community-edition
-      - arch:
-          pacman: gimp
-      - arch:
-          yay: elecwhat-bin
-      - arch:
-          yay: grub-customizer
-      - arch:
-          yay: jd-gui-bin
-      - arch:
-          yay: minecraft-launcher
-      - arch:
-          pacman: prismlauncher
-      - arch:
-          pacman: prusa-slicer
-      - arch:
-          pacman: qbittorrent
-      - arch:
-          pacman: steam
-      - arch:
-          pacman: signal-desktop
-      - arch:
-          pacman: thunderbird
-      - arch:
-          pacman: vlc
-      - arch:
-          pacman: wireshark-qt
-      - arch:
-          pacman: code
-      - arch:
-          pacman: sqlitebrowser
-      - arch:
-          pacman: gparted
-      - arch:
-          yay: slack-desktop
-      - arch:
-          yay: modrinth-app
-      - arch:
-          yay: onlyoffice-bin
-      - arch:
-          yay: pinta
-      - arch:
-          yay: ventoy-bin
-      - arch:
-          yay: r-quick-share-bin
-      - arch:
-          yay: eddie-ui
-      - arch:
-          yay: obsidian-bin
-      - arch:
-          yay: freefilesync
-      - arch:
-          yay: nbtexplorer
-      - arch:
-          yay: onedriver
+  fluxcd:
+    type: "cli"
+    sources:
+      brew:
+        name: "fluxcd/tap/flux"
+  golangci:
+    type: "cli"
+    sources:
+      brew:
+        name: "golangci-lint"
+  kind:
+    type: "cli"
+    sources:
+      brew:
+        name: "kind"
+  protobuf:
+    type: "cli"
+    sources:
+      brew:
+        name: "protobuf"
+  gcc:
+    type: "cli"
+    sources:
+      brew:
+        name: "gcc"
+  go:
+    type: "cli"
+    sources:
+      brew:
+        name: "go"
+  k9s:
+    type: "cli"
+    sources:
+      brew:
+        name: "derailed/k9s/k9s"
+  kubectl:
+    type: "cli"
+    sources:
+      brew:
+        name: "kubernetes-cli"
+  helm:
+    type: "cli"
+    sources:
+      brew:
+        name: "helm"
+  pre-commit:
+    type: "cli"
+    sources:
+      brew:
+        name: "pre-commit"
+  btop:
+    type: "cli"
+    sources:
+      brew:
+        name: "btop"
+  chezmoi:
+    type: "cli"
+    sources:
+      brew:
+        name: "chezmoi"
+  docker:
+    type: "cli"
+    sources:
+      brew:
+        name: "docker"
+  docker-compose:
+    type: "cli"
+    sources:
+      brew:
+        name: "docker-compose"
+  docker-buildx:
+    type: "cli"
+    sources:
+      brew:
+        name: "docker-buildx"
+  jq:
+    type: "cli"
+    sources:
+      brew:
+        name: "jq"
+  yq:
+    type: "cli"
+    sources:
+      brew:
+        name: "yq"
+  iputils:
+    type: "cli"
+    sources:
+      brew:
+        name: "iputils"
+  vim:
+    type: "cli"
+    sources:
+      brew:
+        name: "vim"
+  node:
+    type: "cli"
+    sources:
+      brew:
+        name: "node"
+  nvtop:
+    type: "cli"
+    sources:
+      brew:
+        name: "nvtop"
+  ollama:
+    type: "cli"
+    sources:
+      brew:
+        name: "ollama"
+  tree:
+    type: "cli"
+    sources:
+      brew:
+        name: "tree"
+  yt-dlp:
+    type: "cli"
+    sources:
+      brew:
+        name: "yt-dlp"
+  glab:
+    type: "cli"
+    sources:
+      brew:
+        name: "glab"
+  renovate:
+    type: "cli"
+    sources:
+      brew:
+        name: "renovate"
+  rust:
+    type: "cli"
+    sources:
+      brew:
+        name: "rust"
+  nvm:
+    type: "cli"
+    sources:
+      brew:
+        name: "nvm"
+  fission:
+    type: "cli"
+    sources:
+      brew:
+        name: "jonathan-mayer/fission/fission"
+  syft:
+    type: "cli"
+    sources:
+      brew:
+        name: "syft"
+  ansible:
+    type: "cli"
+    sources:
+      brew:
+        name: "ansible"
+  argocd:
+    type: "cli"
+    sources:
+      brew:
+        name: "argocd"
+  cosign:
+    type: "cli"
+    sources:
+      brew:
+        name: "cosign"
+  gofumpt:
+    type: "cli"
+    sources:
+      brew:
+        name: "gofumpt"
+  grpcurl:
+    type: "cli"
+    sources:
+      brew:
+        name: "grpcurl"
+  kcl:
+    type: "cli"
+    sources:
+      brew:
+        name: "kcl"
+  kubebuilder:
+    type: "cli"
+    sources:
+      brew:
+        name: "kubebuilder"
+  ruby:
+    type: "cli"
+    sources:
+      brew:
+        name: "ruby"
+  terraform:
+    type: "cli"
+    sources:
+      brew:
+        name: "terraform"
+  sqlite:
+    type: "cli"
+    sources:
+      brew:
+        name: "sqlite"
+  ffmpeg:
+    type: "cli"
+    sources:
+      brew:
+        name: "ffmpeg"
+  jdk:
+    type: "cli"
+    sources:
+      brew:
+        pacman: "jdk-openjdk"
+  jdk8:
+    type: "cli"
+    sources:
+      brew:
+        pacman: "jdk8-openjdk"
+  jdk21:
+    type: "cli"
+    sources:
+      brew:
+        pacman: "jdk21-openjdk"
+  jdk17:
+    type: "cli"
+    sources:
+      brew:
+        pacman: "jdk17-openjdk"
+  lshw:
+    type: "cli"
+    sources:
+      pacman: "lshw"
+
+  # GUI applications
+
+  caffeine:
+    type: "gui"
+    sources:
+      yay:
+        name: "caffeine-ng"
+  discord:
+    type: "gui"
+    sources:
+      pacman:
+        name: "discord"
+  filezilla:
+    type: "gui"
+    sources:
+      pacman:
+        name: "filezilla"
+  firefox:
+    type: "gui"
+    sources:
+      pacman:
+        name: "firefox"
+  ghidra:
+    type: "gui"
+    sources:
+      pacman:
+        name: "ghidra"
+  gnome-calculator:
+    type: "gui"
+    sources:
+      pacman:
+        name: "gnome-calculator"
+  gnome-clocks:
+    type: "gui"
+    sources:
+      pacman:
+        name: "gnome-clocks"
+  gnome-console:
+    type: "gui"
+    sources:
+      pacman:
+        name: "gnome-console"
+  gnome-disk-utility:
+    type: "gui"
+    sources:
+      pacman:
+        name: "gnome-disk-utility"
+  gnome-logs:
+    type: "gui"
+    sources:
+      pacman:
+        name: "gnome-logs"
+  gnome-system-monitor:
+    type: "gui"
+    sources:
+      pacman:
+        name: "gnome-system-monitor"
+  gnome-text-editor:
+    type: "gui"
+    sources:
+      pacman:
+        name: "gnome-text-editor"
+  gnome-boxes:
+    type: "gui"
+    sources:
+      pacman:
+        name: "gnome-boxes"
+  simple-scan:
+    type: "gui"
+    sources:
+      pacman:
+        name: "simple-scan"
+  virtualbox:
+    type: "gui"
+    sources:
+      pacman:
+        name: "virtualbox"
+  inkscape:
+    type: "gui"
+    sources:
+      pacman:
+        name: "inkscape"
+  intellij:
+    type: "gui"
+    sources:
+      pacman:
+        name: "intellij-idea-community-edition"
+  gimp:
+    type: "gui"
+    sources:
+      pacman:
+        name: "gimp"
+  elecwhat:
+    type: "gui"
+    sources:
+      yay:
+        name: "elecwhat-bin"
+  grub-customizer:
+    type: "gui"
+    sources:
+      yay:
+        name: "grub-customizer"
+  jd-gui:
+    type: "gui"
+    sources:
+      yay:
+        name: "jd-gui-bin"
+  #minecraft-launcher:
+  #  type: "gui"
+  #  sources:
+  #    yay:
+  #      name: "minecraft-launcher"
+  #prismlauncher:
+  #  type: "gui"
+  #  sources:
+  #    pacman:
+  #      name: "prismlauncher"
+  prusa-slicer:
+    type: "gui"
+    sources:
+      pacman:
+        name: "prusa-slicer"
+  qbittorrent:
+    type: "gui"
+    sources:
+      pacman:
+        name: "qbittorrent"
+  steam:
+    type: "gui"
+    sources:
+      pacman:
+        name: "steam"
+  signal:
+    type: "gui"
+    sources:
+      pacman:
+        name: "signal-desktop"
+  thunderbird:
+    type: "gui"
+    sources:
+      pacman:
+        name: "thunderbird"
+  vlc:
+    type: "gui"
+    sources:
+      pacman:
+        name: "vlc"
+  wireshark:
+    type: "gui"
+    sources:
+      pacman:
+        name: "wireshark-qt"
+  vscode:
+    type: "gui"
+    sources:
+      pacman:
+        name: "code"
+  sqlitebrowser:
+    type: "gui"
+    sources:
+      pacman:
+        name: "sqlitebrowser"
+  gparted:
+    type: "gui"
+    sources:
+      pacman:
+        name: "gparted"
+  krita:
+    type: "gui"
+    sources:
+      pacman:
+        name: "krita"
+  slack:
+    type: "gui"
+    sources:
+      yay:
+        name: "slack-desktop"
+  modrinth:
+    type: "gui"
+    sources:
+      yay:
+        name: "modrinth-app"
+  onlyoffice:
+    type: "gui"
+    sources:
+      yay:
+        name: "onlyoffice-bin"
+  pinta:
+    type: "gui"
+    sources:
+      yay:
+        name: "pinta"
+  ventoy:
+    type: "gui"
+    sources:
+      yay:
+        name: "ventoy-bin"
+  quick-share:
+    type: "gui"
+    sources:
+      yay:
+        name: "r-quick-share-bin"
+  eddie-vpn:
+    type: "gui"
+    sources:
+      yay:
+        name: "eddie-ui"
+  obsidian:
+    type: "gui"
+    sources:
+      yay:
+        name: "obsidian-bin"
+  freefilesync:
+    type: "gui"
+    sources:
+      yay:
+        name: "freefilesync"
+  nbtexplorer:
+    type: "gui"
+    sources:
+      yay:
+        name: "nbtexplorer"
+  onedriver:
+    type: "gui"
+    sources:
+      yay:
+        name: "onedriver"
