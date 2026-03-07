@@ -3,11 +3,11 @@
 sources:
   brew:
     command: "brew install $name"
-    condition: "command -v brew" # will be evaluated as [[ $condition ]]
+    condition: "command -v brew" # will be evaluated as [[ {{ .condition }} ]]
     priority: 5 # prefer brew
   pacman:
     command: "sudo pacman -S $name"
-    condition: "&& command -v pacman"
+    condition: "command -v pacman"
     priority: 10
   apt:
     command: "sudo apt install $name"
