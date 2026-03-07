@@ -28,6 +28,11 @@ packages:
     sources:
       brew:
         name: "fluxcd/tap/flux"
+  opencode:
+    type: "cli"
+    sources:
+      brew:
+        name: "anomalyco/tap/opencode"
   golangci:
     type: "cli"
     sources:
