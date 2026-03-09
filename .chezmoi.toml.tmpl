@@ -10,8 +10,9 @@
 {{- $main_path := promptStringOnce . "dev.main_path" "Path to main development dir" -}}
 
 {{- $proxy := promptStringOnce . "proxy" "Proxy URL [none]" -}}
+{{- $altproxy := promptStringOnce . "altproxy" "Alternative Proxy URL [none]" -}}
 {{- $no_proxy := "" -}}
-{{- if ne $proxy "" -}}
+{{- if or (ne $proxy "") (ne $altproxy "") -}}
 {{- $no_proxy = promptStringOnce . "no_proxy" "No Proxy" -}}
 {{- end -}}
 
@@ -73,6 +74,7 @@
     email = {{ $email | quote }}
     go_bins = {{ $go_bins }}
     proxy = {{ $proxy | quote }}
+    altproxy = {{ $altproxy | quote }}
     no_proxy = {{ $no_proxy | quote }}
     remote = {{ $remote }}
     default_ctx = {{ $default_ctx | quote }}
