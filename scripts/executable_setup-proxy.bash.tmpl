@@ -33,3 +33,15 @@ resetproxy() {
   export NO_PROXY={{ .no_proxy | quote }}
   export no_proxy=$NO_PROXY
 }
+
+# temporary alternative proxy configuration
+useproxy() {
+  altproxy
+
+  "$@"
+  local status=$?
+
+  resetproxy
+  
+  return $status
+}
