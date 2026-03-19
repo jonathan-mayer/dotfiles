@@ -33,6 +33,16 @@ packages:
     sources:
       brew:
         name: "anomalyco/tap/opencode"
+  kompose:
+    type: "cli"
+    sources:
+      brew:
+        name: "kompose"
+  sops:
+    type: "cli"
+    sources:
+      brew:
+        name: "sops"
   golangci:
     type: "cli"
     sources:
