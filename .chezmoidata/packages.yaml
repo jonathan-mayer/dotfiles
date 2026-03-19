@@ -247,26 +247,35 @@ packages:
     type: "cli"
     sources:
       brew:
-        pacman: "jdk-openjdk"
+        name: "jdk"
+      pacman:
+        name: "jdk-openjdk"
   jdk8:
     type: "cli"
     sources:
       brew:
-        pacman: "jdk8-openjdk"
+        name: "jdk8"
+      pacman:
+        name: "jdk8-openjdk"
   jdk21:
     type: "cli"
     sources:
       brew:
-        pacman: "jdk21-openjdk"
+        name: "openjdk21"
+      pacman:
+        name: "jdk21-openjdk"
   jdk17:
     type: "cli"
     sources:
       brew:
-        pacman: "jdk17-openjdk"
+        name: "openjdk17"
+      pacman:
+        name: "jdk17-openjdk"
   lshw:
     type: "cli"
     sources:
-      pacman: "lshw"
+      pacman:
+        name: "lshw"
 
   # GUI applications
 
