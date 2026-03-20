@@ -802,11 +802,6 @@ check_behind_upstream() {
 }
 check_behind_upstream
 
-# opencode config alias
-opencode() {
-  OPENCODE_ENABLE_EXA=1 command opencode "$@"
-}
-
 # alias for all commands that require alt proxy
 {{- range .altproxy_commands }}
 alias {{ . }}="useproxy command {{ . }}"
