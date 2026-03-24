@@ -10,8 +10,8 @@
 {{- range $mcps }}
 {{ $sep }}    {{ .name | quote }}: {
       "enabled": true,
-      "type": "remote",
-      "url": {{ .url | quote }}
+      "type": {{ .type | quote }}{{- if .url }},
+      "url": {{ .url | quote }}{{- end }}
     }
 {{- $sep = "," -}}
 {{- end }}

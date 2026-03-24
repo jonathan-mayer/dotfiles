@@ -48,6 +48,7 @@
 {{- range $i, $e := (until (promptInt "Number of OpenCode MCP servers" | int)) -}}
   {{- $opencodeMcps = append $opencodeMcps (dict
     "name" (promptString (printf "MCP name %d" $i))
+    "type" (promptString (printf "MCP type %d" $i))
     "url" (promptString (printf "MCP URL %d [none]" $i))
   ) -}}
 {{- end -}}
@@ -118,8 +119,7 @@
 {{- range $opencodeMcps }}
 [[data.opencode.mcps]]
     name = {{ .name | quote }}
-    enabled = true
-    type = "remote"
+    type = {{ .type | quote }}
     url = {{ .url | quote }}
 {{- end }}
 [data.docker]
