@@ -41,6 +41,18 @@
 {{- end -}}
 {{- end -}}
 
+{{- $opencodeMcps := list -}}
+{{- if and (hasKey . "opencode") (hasKey .opencode "mcps") -}}
+  {{- $opencodeMcps = .opencode.mcps -}}
+{{- else -}}
+{{- range $i, $e := (until (promptInt "Number of OpenCode MCP servers" | int)) -}}
+  {{- $opencodeMcps = append $opencodeMcps (dict
+    "name" (promptString (printf "MCP name %d" $i))
+    "url" (promptString (printf "MCP URL %d [none]" $i))
+  ) -}}
+{{- end -}}
+{{- end -}}
+
 {{- $mavenRepos := list -}}
 {{- if and (hasKey . "maven") (hasKey .maven "repos") -}}
   {{- $mavenRepos = .maven.repos -}}
@@ -54,7 +66,10 @@
 {{- end -}}
 {{- end -}}
 
-{{- $altproxy_commands := promptStringOnce . "altproxy_commands" "Comma seperated list of commands that need altproxy rules [none]" -}}
+{{- $altproxy_commands := "" -}}
+{{- if not (hasKey . "altproxy_commands") -}}
+{{- $altproxy_commands = promptString "Comma seperated list of commands that need altproxy rules [none]" -}}
+{{- end }}
 
 {{- $docker_registries := list -}}
 {{- if and (hasKey . "docker") (hasKey .docker "registries") -}}
@@ -82,7 +97,9 @@
     default_ctx = {{ $default_ctx | quote }}
     altproxy_commands = [
 {{- range split "," $altproxy_commands }}
+{{- if . }}
       {{ . | quote }},
+{{- end }}
 {{- end }}
     ]
 [data.secrets]
@@ -96,6 +113,14 @@
     email = {{ .email | quote }}
     token = {{ .token | quote }}
     private = {{ .private }}
+{{- end }}
+[data.opencode]
+{{- range $opencodeMcps }}
+[[data.opencode.mcps]]
+    name = {{ .name | quote }}
+    enabled = true
+    type = "remote"
+    url = {{ .url | quote }}
 {{- end }}
 [data.docker]
     mirror = {{ $docker_mirror | quote }}

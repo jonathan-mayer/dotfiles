@@ -1,0 +1,19 @@
+{{- $mcps := list -}}
+{{- if and (hasKey . "opencode") (hasKey .opencode "mcps") -}}
+  {{- $mcps = .opencode.mcps -}}
+{{- end -}}
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {},
+  "mcp": {
+{{- $sep := "" -}}
+{{- range $mcps }}
+{{ $sep }}    {{ .name | quote }}: {
+      "enabled": true,
+      "type": "remote",
+      "url": {{ .url | quote }}
+    }
+{{- $sep = "," -}}
+{{- end }}
+  }
+}
