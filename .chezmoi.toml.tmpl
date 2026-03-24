@@ -41,12 +41,12 @@
 {{- end -}}
 {{- end -}}
 
-{{- $opencodeMcps := list -}}
-{{- if and (hasKey . "opencode") (hasKey .opencode "mcps") -}}
-  {{- $opencodeMcps = .opencode.mcps -}}
+{{- $aiMcps := list -}}
+{{- if and (hasKey . "ai") (hasKey .ai "mcps") -}}
+  {{- $aiMcps = .ai.mcps -}}
 {{- else -}}
-{{- range $i, $e := (until (promptInt "Number of OpenCode MCP servers" | int)) -}}
-  {{- $opencodeMcps = append $opencodeMcps (dict
+{{- range $i, $e := (until (promptInt "Number of AI MCP servers" | int)) -}}
+  {{- $aiMcps = append $aiMcps (dict
     "name" (promptString (printf "MCP name %d" $i))
     "type" (promptString (printf "MCP type %d" $i))
     "url" (promptString (printf "MCP URL %d [none]" $i))
@@ -117,9 +117,9 @@
     token = {{ .token | quote }}
     private = {{ .private }}
 {{- end }}
-[data.opencode]
-{{- range $opencodeMcps }}
-[[data.opencode.mcps]]
+[data.ai]
+{{- range $aiMcps }}
+[[data.ai.mcps]]
     name = {{ .name | quote }}
     type = {{ .type | quote }}
     url = {{ .url | quote }}
