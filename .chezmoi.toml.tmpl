@@ -68,7 +68,9 @@
 {{- end -}}
 
 {{- $altproxy_commands := "" -}}
-{{- if not (hasKey . "altproxy_commands") -}}
+{{- if hasKey . "altproxy_commands" -}}
+{{- $altproxy_commands = join "," .altproxy_commands -}}
+{{- else -}}
 {{- $altproxy_commands = promptString "Comma seperated list of commands that need altproxy rules [none]" -}}
 {{- end }}
 
