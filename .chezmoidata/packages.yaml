@@ -53,6 +53,11 @@ packages:
     sources:
       brew:
         name: "kind"
+  github:
+    type: "cli"
+    sources:
+      brew:
+        name: "gh"
   protobuf:
     type: "cli"
     sources:
