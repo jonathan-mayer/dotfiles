@@ -58,6 +58,11 @@ packages:
     sources:
       brew:
         name: "gh"
+  nmap:
+    type: "cli"
+    sources:
+      brew:
+        name: "nmap"
   protobuf:
     type: "cli"
     sources:
