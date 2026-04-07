@@ -60,5 +60,13 @@ alias pipenv="python3 -m pipenv"
 
 eval "$(opencode completion)"
 
+# remove windows paths from PATH var
+PATH="$(
+  printf '%s' "$PATH" |
+    sed -E 's#[A-Za-z]:\\[^:;]*;##g'
+)"
+export PATH
+hash -r 2>/dev/null || true
+
 # cleanup rc var if set
 unset rc
