@@ -5,6 +5,18 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "permission": {},
+{{- if and (hasKey . "ai") (hasKey .ai "providers") (hasKey .ai.providers "aws") (ne .ai.providers.aws.profile "") }}
+  "provider": {
+    "amazon-bedrock": {
+      "options": {
+{{- if ne .ai.providers.aws.region "" }}
+        "region": {{ .ai.providers.aws.region | quote }},
+{{- end }}
+        "profile": {{ .ai.providers.aws.profile | quote }}
+      }
+    }
+  },
+{{- end }}
   "mcp": {
 {{- $sep := "" -}}
 {{- range $mcps }}
