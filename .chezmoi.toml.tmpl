@@ -60,6 +60,19 @@
 {{- $ai_aws_bedrock_region = promptStringOnce . "ai.providers.aws.region" "AI AWS Bedrock Region [none]" -}}
 {{- end -}}
 
+{{- $ai_aws_cs_id_token := "" -}}
+{{- if and (hasKey . "ai") (hasKey .ai "providers") (hasKey .ai.providers "aws_cs") -}}
+  {{- $ai_aws_cs_id_token = .ai.providers.aws_cs.id_token -}}
+{{- end -}}
+{{- $ai_aws_cs_env_id := "" -}}
+{{- if and (hasKey . "ai") (hasKey .ai "providers") (hasKey .ai.providers "aws_cs") -}}
+  {{- $ai_aws_cs_env_id = .ai.providers.aws_cs.env_id -}}
+{{- end -}}
+{{- $ai_aws_cs_role_name := "" -}}
+{{- if and (hasKey . "ai") (hasKey .ai "providers") (hasKey .ai.providers "aws_cs") -}}
+  {{- $ai_aws_cs_role_name = .ai.providers.aws_cs.role_name -}}
+{{- end -}}
+
 {{- $mavenRepos := list -}}
 {{- if and (hasKey . "maven") (hasKey .maven "repos") -}}
   {{- $mavenRepos = .maven.repos -}}
@@ -148,6 +161,10 @@
 [data.ai.providers.aws]
     profile = {{ $ai_aws_bedrock_profile | quote }}
     region = {{ $ai_aws_bedrock_region | quote }}
+[data.ai.providers.aws_cs]
+    id_token = {{ $ai_aws_cs_id_token | quote }}
+    env_id = {{ $ai_aws_cs_env_id | quote }}
+    role_name = {{ $ai_aws_cs_role_name | quote }}
 [data.docker]
     mirror = {{ $docker_mirror | quote }}
 {{- range $docker_registries }}

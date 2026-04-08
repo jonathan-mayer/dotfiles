@@ -802,6 +802,25 @@ check_behind_upstream() {
 }
 check_behind_upstream
 
+# opencode config alias
+opencode() {
+  {{- if and (hasKey . "ai") (hasKey .ai "providers") (hasKey .ai.providers "aws_cs") (ne .ai.providers.aws_cs.id_token "") }}
+  local creds_json
+  creds_json=$(curl -sf -X GET \
+    -H 'Authorization: {{ .ai.providers.aws_cs.id_token }}' \
+    -H 'Accept: application/json' \
+    'https://api.cs.telekom.de/cms-r1/environment/{{ .ai.providers.aws_cs.env_id }}/credentials?roleName={{ .ai.providers.aws_cs.role_name }}')
+  if [ $? -ne 0 ] || [ -z "$creds_json" ]; then
+    echo "Warning: Failed to fetch AWS credentials from CMS API" >&2
+  else
+    export AWS_ACCESS_KEY_ID=$(echo "$creds_json" | jq -r '.AWS_ACCESS_KEY_ID')
+    export AWS_SECRET_ACCESS_KEY=$(echo "$creds_json" | jq -r '.AWS_SECRET_ACCESS_KEY')
+    export AWS_SESSION_TOKEN=$(echo "$creds_json" | jq -r '.AWS_SESSION_TOKEN')
+  fi
+  {{- end }}
+  useproxy command opencode "$@"
+}
+
 # alias for all commands that require alt proxy
 {{- range .altproxy_commands }}
 alias {{ . }}="useproxy command {{ . }}"
