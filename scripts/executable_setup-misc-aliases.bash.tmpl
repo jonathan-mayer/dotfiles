@@ -818,7 +818,11 @@ opencode() {
     export AWS_SESSION_TOKEN=$(echo "$creds_json" | jq -r '.AWS_SESSION_TOKEN')
   fi
   {{- end }}
+  {{ if and .proxy .altproxy }}
   useproxy command opencode "$@"
+  {{- else -}}
+  command opencode "$@"
+  {{- end }}
 }
 
 # alias for all commands that require alt proxy
