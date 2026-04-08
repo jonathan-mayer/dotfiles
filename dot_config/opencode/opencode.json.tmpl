@@ -1,6 +1,6 @@
 {{- $mcps := list -}}
-{{- if and (hasKey . "opencode") (hasKey .opencode "mcps") -}}
-  {{- $mcps = .opencode.mcps -}}
+{{- if and (hasKey . "ai") (hasKey .ai "mcps") -}}
+  {{- $mcps = .ai.mcps -}}
 {{- end -}}
 {
   "$schema": "https://opencode.ai/config.json",
@@ -19,7 +19,7 @@
 {{- end }}
   "mcp": {
 {{- $sep := "" -}}
-{{- range $ai.mcps }}
+{{- range $mcps }}
 {{ $sep }}    {{ .name | quote }}: {
       "enabled": true,
       "type": {{ .type | quote }}{{- if .url }},
