@@ -58,7 +58,7 @@ alias pipenv="python3 -m pipenv"
 
 . <(flux completion bash)
 
-eval "$(opencode completion)"
+eval "$(opencode completion 2>/dev/null)"
 
 # remove windows paths from PATH var
 PATH="$(

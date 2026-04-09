@@ -802,22 +802,80 @@ check_behind_upstream() {
 }
 check_behind_upstream
 
+{{- if and (hasKey . "ai") (hasKey .ai "providers") (hasKey .ai.providers "aws_cs") }}
+# Ensure a valid CS token exists and export temporary AWS credentials
+_cs_ensure_aws_bedrock_auth() {
+  local CS_ID_TOKEN="" CS_ENV_ID="" CS_ROLE_NAME="" CS_TOKEN_EXP=""
+  if [ -f ~/.csrc ]; then
+    . ~/.csrc
+  fi
+
+  # Check if token is missing or expired
+  local _cs_now
+  _cs_now=$(date +%s)
+  if [ -z "$CS_ID_TOKEN" ] || [ -z "$CS_TOKEN_EXP" ] || [ "$_cs_now" -ge "$CS_TOKEN_EXP" ]; then
+    if [ -n "$CS_ID_TOKEN" ] && [ -n "$CS_TOKEN_EXP" ]; then
+      echo "CS ID token has expired." >&2
+    else
+      echo "CS ID token is not set." >&2
+    fi
+    local _cs_new_token
+    read -rp "Enter new CS ID token: " _cs_new_token
+    if [ -z "$_cs_new_token" ]; then
+      echo "No token provided, skipping AWS credential fetch." >&2
+      return 1
+    fi
+
+    # Decode JWT payload to extract expiration timestamp
+    local payload exp
+    payload=$(echo "$_cs_new_token" | cut -d. -f2)
+    # base64url to base64: replace - with + and _ with /
+    payload=$(echo "$payload" | tr '_-' '/+')
+    # add padding if needed
+    local pad=$(( 4 - ${#payload} % 4 ))
+    [ "$pad" -lt 4 ] && payload="${payload}$(printf '=%.0s' $(seq 1 "$pad"))"
+    exp=$(echo "$payload" | base64 -d 2>/dev/null | jq -r '.exp // empty')
+
+    if [ -z "$exp" ]; then
+      echo "Warning: Could not extract expiration from token" >&2
+    fi
+
+    cat > ~/.csrc <<EOF
+CS_ID_TOKEN="$_cs_new_token"
+CS_ENV_ID="{{ .ai.providers.aws_cs.env_id }}"
+CS_ROLE_NAME="{{ .ai.providers.aws_cs.role_name }}"
+CS_TOKEN_EXP="${exp}"
+EOF
+    echo "CS config written to ~/.csrc" >&2
+    CS_ID_TOKEN="" CS_ENV_ID="" CS_ROLE_NAME="" CS_TOKEN_EXP=""
+    . ~/.csrc
+  fi
+
+  if [ -n "$CS_ID_TOKEN" ] && [ -n "$CS_ENV_ID" ] && [ -n "$CS_ROLE_NAME" ]; then
+    local creds_json
+    creds_json=$(curl -sf -X GET \
+      -H "Authorization: $CS_ID_TOKEN" \
+      -H 'Accept: application/json' \
+      "https://api.cs.telekom.de/cms-r1/environment/${CS_ENV_ID}/credentials?roleName=${CS_ROLE_NAME}")
+    if [ $? -ne 0 ] || [ -z "$creds_json" ]; then
+      echo "Warning: Failed to fetch AWS credentials from CMS API" >&2
+    else
+      export AWS_ACCESS_KEY_ID=$(echo "$creds_json" | jq -r '.AWS_ACCESS_KEY_ID')
+      export AWS_SECRET_ACCESS_KEY=$(echo "$creds_json" | jq -r '.AWS_SECRET_ACCESS_KEY')
+      export AWS_SESSION_TOKEN=$(echo "$creds_json" | jq -r '.AWS_SESSION_TOKEN')
+    fi
+  fi
+}
+{{- end }}
+
 # opencode config alias
 opencode() {
-  {{- if and (hasKey . "ai") (hasKey .ai "providers") (hasKey .ai.providers "aws_cs") (ne .ai.providers.aws_cs.id_token "") }}
-  local creds_json
-  creds_json=$(curl -sf -X GET \
-    -H 'Authorization: {{ .ai.providers.aws_cs.id_token }}' \
-    -H 'Accept: application/json' \
-    'https://api.cs.telekom.de/cms-r1/environment/{{ .ai.providers.aws_cs.env_id }}/credentials?roleName={{ .ai.providers.aws_cs.role_name }}')
-  if [ $? -ne 0 ] || [ -z "$creds_json" ]; then
-    echo "Warning: Failed to fetch AWS credentials from CMS API" >&2
-  else
-    export AWS_ACCESS_KEY_ID=$(echo "$creds_json" | jq -r '.AWS_ACCESS_KEY_ID')
-    export AWS_SECRET_ACCESS_KEY=$(echo "$creds_json" | jq -r '.AWS_SECRET_ACCESS_KEY')
-    export AWS_SESSION_TOKEN=$(echo "$creds_json" | jq -r '.AWS_SESSION_TOKEN')
+  {{- if and (hasKey . "ai") (hasKey .ai "providers") (hasKey .ai.providers "aws_cs") }}
+  if [ "$1" != "completion"  ]; then
+    _cs_ensure_aws_bedrock_auth
   fi
   {{- end }}
+  
   {{ if and .proxy .altproxy }}
   useproxy command opencode "$@"
   {{- else -}}
