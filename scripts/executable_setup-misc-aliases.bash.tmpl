@@ -411,8 +411,31 @@ browser() {
     "$opener" "$1" >/dev/null 2>&1
 }
 
+# recursive git helper - finds all git repos under cwd and runs the given function in each
+_git_recursive() {
+  local func="$1"
+  shift
+
+  local orig_dir
+  orig_dir="$(pwd)"
+
+  while IFS= read -r -d '' gitdir; do
+    local repo_dir="${gitdir%/.git}"
+    echo "==> $repo_dir"
+    cd "$repo_dir" || { echo "  Error: cannot cd into '$repo_dir'" >&2; continue; }
+    "$func" "$@"
+    echo ""
+    cd "$orig_dir" || return 1
+  done < <(find . -name .git -type d -print0 2>/dev/null)
+}
+
 # git goto main
 gitmain() {
+  if [[ "$1" == "-r" || "$1" == "--recursive" ]]; then
+    _git_recursive gitmain
+    return
+  fi
+
   current_branch=$(git rev-parse --abbrev-ref HEAD)
   if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
     git fetch origin main:main || return 1
@@ -495,6 +518,12 @@ _git_commit_message_completion() {
 
 # git branch and commit
 gitcb() {
+    if [[ "$1" == "-r" || "$1" == "--recursive" ]]; then
+        shift
+        _git_recursive gitcb "$@"
+        return
+    fi
+
     local message="$*" # something like "fix: something again"
     message=$(printf '%s\n' "$message" | sed 's/  */ /g') # normalize whitespaces
 
@@ -531,6 +560,12 @@ complete -F _git_commit_message_completion gitcb
 
 # git branch
 gitb() {
+    if [[ "$1" == "-r" || "$1" == "--recursive" ]]; then
+        shift
+        _git_recursive gitb "$@"
+        return
+    fi
+
     local input="$*" # something like "fix: something again"
     input=$(printf '%s\n' "$input" | sed 's/  */ /g') # normalize whitespaces
 
@@ -548,6 +583,12 @@ complete -F _git_commit_message_completion gitb
 
 # git commit
 gitc() {
+    if [[ "$1" == "-r" || "$1" == "--recursive" ]]; then
+        shift
+        _git_recursive gitc "$@"
+        return
+    fi
+
     local input="$*" # something like "fix: something again"
     input=$(printf '%s\n' "$input" | sed 's/  */ /g') # normalize whitespaces
 
@@ -758,7 +799,7 @@ check_on_stale_branch() {
         echo "Keeping current branch."
         ;;
       *)
-        gitmain
+        gitmain -r
         ;;
     esac
   fi
