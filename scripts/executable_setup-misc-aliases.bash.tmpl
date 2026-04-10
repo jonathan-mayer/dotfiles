@@ -411,28 +411,89 @@ browser() {
     "$opener" "$1" >/dev/null 2>&1
 }
 
-# recursive git helper - finds all git repos under cwd and runs the given function in each
-_git_recursive() {
+# Run a git function across multiple repos
+# Usage: _git_in_repos [-r] <func> [func_args...] [-- repo_paths...]
+#   -r            recursively discover git repos under given paths (or cwd)
+#   Without -r    treat given paths as direct repo directories
+#   Without paths run function once in current directory
+#   func_args     passed through to the function in each repo
+_git_in_repos() {
+  local recursive=false
+  if [[ "$1" == "-r" ]]; then
+    recursive=true
+    shift
+  fi
+
   local func="$1"
   shift
 
+  # Split remaining args on --
+  local func_args=()
+  local given_paths=()
+  local past_separator=false
+
+  for arg in "$@"; do
+    if ! $past_separator && [[ "$arg" == "--" ]]; then
+      past_separator=true
+      continue
+    fi
+    if $past_separator; then
+      given_paths+=("$arg")
+    else
+      func_args+=("$arg")
+    fi
+  done
+
+  # Resolve user-given paths through _dev_path
+  local resolved_paths=()
+  for p in "${given_paths[@]}"; do
+    resolved_paths+=("$(_dev_path "$p")")
+  done
+
   local orig_dir
   orig_dir="$(pwd)"
+  local repo_dirs=()
 
-  while IFS= read -r -d '' gitdir; do
-    local repo_dir="${gitdir%/.git}"
-    echo "==> $repo_dir"
-    cd "$repo_dir" || { echo "  Error: cannot cd into '$repo_dir'" >&2; continue; }
-    "$func" "$@"
+  if $recursive; then
+    local search_dirs=("${resolved_paths[@]}")
+    [[ ${#search_dirs[@]} -eq 0 ]] && search_dirs=(".")
+    for search_dir in "${search_dirs[@]}"; do
+      while IFS= read -r -d '' gitdir; do
+        repo_dirs+=("${gitdir%/.git}")
+      done < <(find "$search_dir" -name .git -type d -print0 2>/dev/null)
+    done
+  else
+    repo_dirs=("${resolved_paths[@]}")
+  fi
+
+  # No repos found/specified -> run once in current directory
+  if [[ ${#repo_dirs[@]} -eq 0 ]]; then
+    "$func" "${func_args[@]}"
+    return
+  fi
+
+  for dir in "${repo_dirs[@]}"; do
+    if [[ ! -d "$dir/.git" ]]; then
+      echo "Error: '$dir' is not a git repository." >&2
+      continue
+    fi
+    echo "==> $dir"
+    cd "$dir" || { echo "  Error: cannot cd into '$dir'" >&2; continue; }
+    "$func" "${func_args[@]}"
     echo ""
     cd "$orig_dir" || return 1
-  done < <(find . -name .git -type d -print0 2>/dev/null)
+  done
 }
 
 # git goto main
 gitmain() {
   if [[ "$1" == "-r" || "$1" == "--recursive" ]]; then
-    _git_recursive gitmain
+    shift
+    _git_in_repos -r gitmain -- "$@"
+    return
+  fi
+  if [[ $# -gt 0 ]]; then
+    _git_in_repos gitmain -- "$@"
     return
   fi
 
@@ -520,9 +581,13 @@ _git_commit_message_completion() {
 gitcb() {
     if [[ "$1" == "-r" || "$1" == "--recursive" ]]; then
         shift
-        _git_recursive gitcb "$@"
+        _git_in_repos -r gitcb "$@"
         return
     fi
+    # Support: gitcb "msg" -- repo1 repo2
+    local _has_sep=false
+    for arg in "$@"; do [[ "$arg" == "--" ]] && { _has_sep=true; break; }; done
+    if $_has_sep; then _git_in_repos gitcb "$@"; return; fi
 
     local message="$*" # something like "fix: something again"
     message=$(printf '%s\n' "$message" | sed 's/  */ /g') # normalize whitespaces
@@ -562,9 +627,13 @@ complete -F _git_commit_message_completion gitcb
 gitb() {
     if [[ "$1" == "-r" || "$1" == "--recursive" ]]; then
         shift
-        _git_recursive gitb "$@"
+        _git_in_repos -r gitb "$@"
         return
     fi
+    # Support: gitb "name" -- repo1 repo2
+    local _has_sep=false
+    for arg in "$@"; do [[ "$arg" == "--" ]] && { _has_sep=true; break; }; done
+    if $_has_sep; then _git_in_repos gitb "$@"; return; fi
 
     local input="$*" # something like "fix: something again"
     input=$(printf '%s\n' "$input" | sed 's/  */ /g') # normalize whitespaces
@@ -585,9 +654,13 @@ complete -F _git_commit_message_completion gitb
 gitc() {
     if [[ "$1" == "-r" || "$1" == "--recursive" ]]; then
         shift
-        _git_recursive gitc "$@"
+        _git_in_repos -r gitc "$@"
         return
     fi
+    # Support: gitc "msg" -- repo1 repo2
+    local _has_sep=false
+    for arg in "$@"; do [[ "$arg" == "--" ]] && { _has_sep=true; break; }; done
+    if $_has_sep; then _git_in_repos gitc "$@"; return; fi
 
     local input="$*" # something like "fix: something again"
     input=$(printf '%s\n' "$input" | sed 's/  */ /g') # normalize whitespaces
