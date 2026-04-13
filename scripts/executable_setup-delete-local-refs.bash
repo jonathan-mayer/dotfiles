@@ -26,13 +26,16 @@ delete-local-refs() {
         fi
 
         # ask user for permission to delete branch
+        local should_delete=false
         if [[ $(git for-each-ref --format '%(upstream:short)' refs/heads/$branch) == "" ]]; then
-            read -p "${color_red}Do you want to delete the local branch '$branch'? (This branch only exists locally.)${color_reset} (y/n) " confirm
+            read -p "${color_red}Do you want to delete the local branch '$branch'? (This branch only exists locally.)${color_reset} (y/N) " confirm
+            [[ $confirm == [yY] ]] && should_delete=true
         else
-            read -p "${color_yellow}Do you want to delete the local branch '$branch'?${color_reset} (y/n) " confirm
+            read -p "${color_yellow}Do you want to delete the local branch '$branch'?${color_reset} (Y/n) " confirm
+            [[ ! $confirm == [nN] ]] && should_delete=true
         fi
 
-        if [[ $confirm == [yY] ]]; then
+        if $should_delete; then
             # delete branch
             git branch -D "$branch"
             echo "Deleted branch '$branch'."

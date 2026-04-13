@@ -444,10 +444,14 @@ _git_in_repos() {
     fi
   done
 
-  # Resolve user-given paths through _dev_path
+  # Resolve user-given paths: prefer local paths over _dev_path
   local resolved_paths=()
   for p in "${given_paths[@]}"; do
-    resolved_paths+=("$(_dev_path "$p")")
+    if [[ -e "$p" ]]; then
+      resolved_paths+=("$p")
+    else
+      resolved_paths+=("$(_dev_path "$p")")
+    fi
   done
 
   local orig_dir
