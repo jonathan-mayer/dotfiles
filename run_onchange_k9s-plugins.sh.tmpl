@@ -1,0 +1,76 @@
+#! /bin/bash
+# This script downloads k9s community plugins from the upstream repository
+# and merges them into a single ~/.config/k9s/plugins.yaml file.
+#
+# Each plugin entry gets override=true so that plugins sharing a shortcut
+# on different scopes (e.g. Shift-R for reconcile across resource types)
+# are accepted by k9s instead of being rejected as duplicate keys.
+#
+{{- $k9sPlugins := list -}}
+{{- if and (hasKey . "k9s") (hasKey .k9s "plugins") -}}
+{{- $k9sPlugins = .k9s.plugins -}}
+{{- end }}
+# Plugins: {{ $k9sPlugins | join "," }}
+
+set -eu
+
+{{- if .proxy }}
+export http_proxy={{ .proxy | quote }}
+export https_proxy={{ .proxy | quote }}
+export HTTP_PROXY={{ .proxy | quote }}
+export HTTPS_PROXY={{ .proxy | quote }}
+export no_proxy={{ .no_proxy | quote }}
+export NO_PROXY={{ .no_proxy | quote }}
+{{- end }}
+
+PLUGINS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/k9s/plugins.yaml"
+REPO_BASE="https://raw.githubusercontent.com/derailed/k9s/master/plugins"
+
+MANAGED_PLUGINS=({{ range $k9sPlugins }}{{ . | quote }} {{ end }})
+
+if [ ${#MANAGED_PLUGINS[@]} -eq 0 ]; then
+  rm -f "$PLUGINS_FILE"
+  echo "k9s plugins.yaml removed (no plugins configured)"
+  exit 0
+fi
+
+mkdir -p "$(dirname "$PLUGINS_FILE")"
+
+# Download each plugin source and collect stripped YAML into temp files
+tmp_dir=$(mktemp -d)
+trap 'rm -rf "$tmp_dir"' EXIT
+
+for plugin in "${MANAGED_PLUGINS[@]}"; do
+  echo "Downloading k9s plugin: $plugin"
+  if curl -sSfL "${REPO_BASE}/${plugin}.yaml" -o "${tmp_dir}/${plugin}.raw"; then
+    # Strip the plugins: wrapper used by the main plugins.yaml format
+    yq '.plugins // .' "${tmp_dir}/${plugin}.raw" > "${tmp_dir}/${plugin}.yaml"
+    rm "${tmp_dir}/${plugin}.raw"
+  else
+    echo "WARNING: Failed to download k9s plugin: $plugin" >&2
+    rm -f "${tmp_dir}/${plugin}.raw"
+  fi
+done
+
+# Merge all stripped plugin files into a single plugins.yaml
+stripped_files=()
+for plugin in "${MANAGED_PLUGINS[@]}"; do
+  [ -f "${tmp_dir}/${plugin}.yaml" ] && stripped_files+=("${tmp_dir}/${plugin}.yaml")
+done
+
+if [ ${#stripped_files[@]} -eq 0 ]; then
+  echo "WARNING: No plugins were downloaded successfully" >&2
+  exit 1
+fi
+
+# Merge all entries, set override on each so k9s allows shared shortcuts
+# across different scopes, and wrap under the plugins: top-level key.
+# Without override, k9s rejects any shortcut already registered by a
+# built-in action or an earlier plugin in the same iteration pass.
+yq eval-all '. as $item ireduce ({}; . * $item)' "${stripped_files[@]}" \
+  | yq '(.[] | select(has("shortCut"))).override = true' \
+  | yq '{"plugins": .}' \
+  > "$PLUGINS_FILE"
+
+count=$(yq '.plugins | keys | length' "$PLUGINS_FILE")
+echo "k9s plugins.yaml written with $count plugin entries"

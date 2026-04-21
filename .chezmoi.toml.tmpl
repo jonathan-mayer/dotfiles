@@ -117,6 +117,13 @@
 
 {{- $default_ctx := promptStringOnce . "default_ctx" "Default Kubeconfig Context" -}}
 
+{{- $k9s_plugins := "" -}}
+{{- if and (hasKey . "k9s") (hasKey .k9s "plugins") -}}
+{{- $k9s_plugins = join "," .k9s.plugins -}}
+{{- else -}}
+{{- $k9s_plugins = promptString "Comma separated list of k9s plugins (e.g. flux,helm-values,debug-container) [none]" -}}
+{{- end -}}
+
 [data]
     name = {{ $name | quote }}
     email = {{ $email | quote }}
@@ -165,6 +172,14 @@
     url = {{ .url | quote }}
     token = {{ .token | quote }}
 {{- end }}
+[data.k9s]
+    plugins = [
+{{- range split "," $k9s_plugins }}
+{{- if . }}
+      {{ . | quote }},
+{{- end }}
+{{- end }}
+    ]
 {{- range $awsCredentials }}
 [[data.aws.credentials]]
     profile = {{ .profile | quote }}
