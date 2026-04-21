@@ -1,13 +1,29 @@
 #! /bin/bash
 
-# Update Alias
+# Update Function
+_UPDATE_TIMESTAMP_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/last-update"
+
+update() {
+  if [ -f "$_UPDATE_TIMESTAMP_FILE" ]; then
+    echo "Last update: $(cat "$_UPDATE_TIMESTAMP_FILE")"
+  else
+    echo "Last update: never"
+  fi
+  echo ""
+
 {{- if eq .chezmoi.osRelease.id "arch" }}
-alias update="sudo pacman -Syu --noconfirm && yay -Syu --rebuildall --noconfirm && brew upgrade && flatpak update -y"
+  sudo pacman -Syu --noconfirm && yay -Syu --rebuildall --noconfirm && brew upgrade && flatpak update -y
 {{- else if eq .chezmoi.osRelease.id "fedora" }}
-alias update="sudo dnf upgrade --refresh -y && brew upgrade && flatpak update -y"
+  sudo dnf upgrade --refresh -y && brew upgrade && flatpak update -y
 {{- else }}
-alias update="sudo apt update && sudo apt upgrade -y && brew upgrade"
+  sudo apt update && sudo apt upgrade -y && brew upgrade
 {{- end }}
+
+  if [ $? -eq 0 ]; then
+    mkdir -p "$(dirname "$_UPDATE_TIMESTAMP_FILE")"
+    date "+%Y-%m-%d %H:%M:%S" > "$_UPDATE_TIMESTAMP_FILE"
+  fi
+}
 
 # Pre-Commit Aliases
 alias pci="pre-commit install" \
@@ -925,6 +941,19 @@ check_behind_upstream() {
   fi
 }
 check_behind_upstream
+
+# check if system update is overdue
+check_update_stale() {
+  if [ -f "$_UPDATE_TIMESTAMP_FILE" ]; then
+    local last_update_epoch one_month_ago
+    last_update_epoch=$(date -d "$(cat "$_UPDATE_TIMESTAMP_FILE")" +%s 2>/dev/null)
+    one_month_ago=$(date -d "1 month ago" +%s 2>/dev/null)
+    if [ -n "$last_update_epoch" ] && [ "$last_update_epoch" -lt "$one_month_ago" ]; then
+      echo "System not updated since $(cat "$_UPDATE_TIMESTAMP_FILE"). Run 'update' to refresh."
+    fi
+  fi
+}
+check_update_stale
 
 {{- if and (hasKey . "ai") (hasKey .ai "providers") (hasKey .ai.providers "aws_cs") }}
 # Ensure a valid CS token exists and export temporary AWS credentials
