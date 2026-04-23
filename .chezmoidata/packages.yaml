@@ -524,8 +524,8 @@ packages:
     sources:
       pacman:
         name: "sshfs"
-  krdp:
+  krdc:
     type: "gui"
     sources:
       pacman:
-        name: "krdp"
+        name: "krdc"
