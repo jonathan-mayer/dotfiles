@@ -514,3 +514,18 @@ packages:
     sources:
       yay:
         name: "onedriver"
+  kdeconnect:
+    type: "gui"
+    sources:
+      pacman:
+        name: "kdeconnect"
+  sshfs:
+    type: "gui"
+    sources:
+      pacman:
+        name: "sshfs"
+  krdp:
+    type: "gui"
+    sources:
+      pacman:
+        name: "krdp"
