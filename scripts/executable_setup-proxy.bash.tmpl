@@ -1,4 +1,5 @@
 #! /bin/bash
+{{- if .proxy }}
 
 export proxy={{ .proxy | quote }}
 export ftp_proxy=${proxy}
@@ -21,8 +22,22 @@ altproxy() {
   export HTTPS_PROXY=${proxy}
 }
 
+# temporary alternative proxy configuration
+useproxy() {
+  altproxy
+
+  "$@"
+  local status=$?
+
+  resetproxy
+
+  return $status
+}
+{{- end }}
+
 # reset proxy configuration
 resetproxy() {
+{{- if .proxy }}
   export proxy={{ .proxy | quote }}
   export ftp_proxy=${proxy}
   export http_proxy=${proxy}
@@ -32,16 +47,108 @@ resetproxy() {
   export HTTPS_PROXY=${proxy}
   export NO_PROXY={{ .no_proxy | quote }}
   export no_proxy=$NO_PROXY
+{{- else }}
+  unset proxy ftp_proxy http_proxy https_proxy FTP_PROXY HTTP_PROXY HTTPS_PROXY NO_PROXY no_proxy
+{{- end }}
 }
 
-# temporary alternative proxy configuration
-useproxy() {
-  altproxy
+# mitmproxy support
+MITM_PORT=${MITM_PORT:-1080}
+MITM_PROXY="http://127.0.0.1:${MITM_PORT}"
 
-  "$@"
-  local status=$?
+# install mitmproxy CA certificate system-wide
+_mitm_install_cert() {
+  local cert_dir="$HOME/.mitmproxy"
+  local cert="$cert_dir/mitmproxy-ca-cert.pem"
 
-  resetproxy
-  
-  return $status
+  if [[ ! -f "$cert" ]]; then
+    echo "Generating mitmproxy certificates..."
+    mitmdump -q --listen-port 0 &
+    local pid=$!
+    sleep 2
+    kill "$pid" 2>/dev/null
+    wait "$pid" 2>/dev/null
+  fi
+
+  if [[ ! -f "$cert" ]]; then
+    echo "Error: Failed to generate mitmproxy certificate"
+    return 1
+  fi
+
+  echo "Installing mitmproxy CA certificate..."
+  if command -v update-ca-trust &>/dev/null; then
+    sudo cp "$cert" /etc/pki/ca-trust/source/anchors/mitmproxy-ca-cert.pem
+    sudo update-ca-trust
+  elif command -v update-ca-certificates &>/dev/null; then
+    sudo cp "$cert" /usr/local/share/ca-certificates/mitmproxy-ca-cert.crt
+    sudo update-ca-certificates --fresh
+  else
+    echo "Warning: Could not find certificate update tool"
+    return 1
+  fi
+  echo "mitmproxy CA certificate installed"
 }
+
+# set current shell to route traffic through mitmproxy
+mitmshell() {
+  export proxy="${MITM_PROXY}"
+  export http_proxy="${MITM_PROXY}"
+  export https_proxy="${MITM_PROXY}"
+  export HTTP_PROXY="${MITM_PROXY}"
+  export HTTPS_PROXY="${MITM_PROXY}"
+  export FTP_PROXY="${MITM_PROXY}"
+  export ftp_proxy="${MITM_PROXY}"
+  echo "Proxy variables set to ${MITM_PROXY} (use resetproxy to restore)"
+}
+
+# start mitmproxy with a preconfigured mode
+mitmstart() {
+  local mode="${1:-}"
+  local args=()
+
+  case "$mode" in
+{{- if .proxy }}
+    proxy)
+      args+=(--mode "upstream:{{ .proxy }}")
+      ;;
+{{- end }}
+{{- if .altproxy }}
+    altproxy)
+      args+=(--mode "upstream:{{ .altproxy }}")
+      ;;
+{{- end }}
+    regular)
+      ;;
+    *)
+      echo "Usage: mitmstart <MODE> [extra mitmproxy args...]"
+      echo ""
+      echo "Modes:"
+{{- if .proxy }}
+      echo "  proxy      - upstream through {{ .proxy }}"
+{{- end }}
+{{- if .altproxy }}
+      echo "  altproxy   - upstream through {{ .altproxy }}"
+{{- end }}
+      echo "  regular    - direct connection (no upstream proxy)"
+      return 1
+      ;;
+  esac
+  shift
+
+  _mitm_install_cert || return 1
+
+  echo "Starting mitmproxy in '${mode}' mode on port ${MITM_PORT}..."
+  mitmproxy --listen-port "${MITM_PORT}" "${args[@]}" "$@"
+}
+
+_mitmstart() {
+  local modes="regular"
+{{- if .proxy }}
+  modes+=" proxy"
+{{- end }}
+{{- if .altproxy }}
+  modes+=" altproxy"
+{{- end }}
+  COMPREPLY=( $(compgen -W "${modes}" -- "${COMP_WORDS[COMP_CWORD]}") )
+}
+complete -F _mitmstart mitmstart
