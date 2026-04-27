@@ -286,6 +286,13 @@ packages:
     sources:
       pacman:
         name: "lshw"
+  mitmproxy:
+    type: "cli"
+    sources:
+      apt:
+        name: "mitmproxy"
+      pacman:
+        name: "mitmproxy"
 
   # GUI applications
 
