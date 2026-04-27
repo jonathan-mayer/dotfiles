@@ -1023,11 +1023,13 @@ EOF
 
 # opencode config alias
 opencode() {
+  {{/* 
   {{- if and (hasKey . "ai") (hasKey .ai "providers") (hasKey .ai.providers "aws_cs") .ai.providers.aws_cs.env_id .ai.providers.aws_cs.role_name }}
   if [ "$1" != "completion"  ]; then
     _cs_ensure_aws_bedrock_auth
   fi
   {{- end }}
+  */}}
   
   {{ if and .proxy .altproxy }}
   useproxy command opencode "$@"

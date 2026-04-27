@@ -19,8 +19,8 @@
 {{- end }}
   "mcp": {
 {{- $sep := "" -}}
-{{- range $mcps }}
-{{ $sep }}    {{ .name | quote }}: {
+{{- range $mcps }}{{ $sep }}
+    {{ .name | quote }}: {
       "enabled": true,
       "type": {{ .type | quote }}{{- if .url }},
       "url": {{ .url | quote }}{{- end }}
