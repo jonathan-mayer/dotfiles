@@ -318,7 +318,7 @@ code() {
 complete -F _dev_path_completion code
 
 # glab clone group alias
-alias dev-reclone="cd $(dirname $main_dir) && glab repo clone --group "$gitlab_group" --preserve-namespace --paginate $(basename $main_dir); cd -"
+alias dev-reclone="cd $dev_dir && glab repo clone --group "$gitlab_group" --preserve-namespace --paginate .; cd -"
 alias dev-clone="dev-reclone"
 
 # create repo alias in $dev_dir
