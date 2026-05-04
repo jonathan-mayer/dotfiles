@@ -60,13 +60,6 @@
 {{- $ai_aws_bedrock_region = promptStringOnce . "ai.providers.aws.region" "AI AWS Bedrock Region [none]" -}}
 {{- end -}}
 
-{{- $ai_aws_cs_env_id := "" -}}
-{{- $ai_aws_cs_role_name := "" -}}
-{{- if and (hasKey . "ai") (hasKey .ai "providers") (hasKey .ai.providers "aws_cs") -}}
-  {{- $ai_aws_cs_env_id = .ai.providers.aws_cs.env_id -}}
-  {{- $ai_aws_cs_role_name = .ai.providers.aws_cs.role_name -}}
-{{- end -}}
-
 {{- $mavenRepos := list -}}
 {{- if and (hasKey . "maven") (hasKey .maven "repos") -}}
   {{- $mavenRepos = .maven.repos -}}
@@ -99,21 +92,6 @@
 {{- end -}}
 {{- end -}}
 {{- $docker_mirror := promptStringOnce . "docker.mirror" "Docker Mirror" -}}
-
-{{- $awsCredentials := list -}}
-{{- if and (hasKey . "aws") (hasKey .aws "credentials") -}}
-  {{- $awsCredentials = .aws.credentials -}}
-{{- else -}}
-{{- range $i, $e := (until (promptInt "Number of AWS credential profiles" | int)) -}}
-  {{- $awsCredentials = append $awsCredentials (dict 
-    "profile" (promptString (printf "AWS Profile Name %d" $i))
-    "access_key_id" "unset"
-    "secret_access_key" "unset"
-    "session_token" ""
-    "region" (promptString (printf "AWS Region %d [none]" $i))
-  ) -}}
-{{- end -}}
-{{- end -}}
 
 {{- $default_ctx := promptStringOnce . "default_ctx" "Default Kubeconfig Context" -}}
 
@@ -162,9 +140,6 @@
 [data.ai.providers.aws]
     profile = {{ $ai_aws_bedrock_profile | quote }}
     region = {{ $ai_aws_bedrock_region | quote }}
-[data.ai.providers.aws_cs]
-    env_id = {{ $ai_aws_cs_env_id | quote }}
-    role_name = {{ $ai_aws_cs_role_name | quote }}
 [data.docker]
     mirror = {{ $docker_mirror | quote }}
 {{- range $docker_registries }}
@@ -180,14 +155,6 @@
 {{- end }}
 {{- end }}
     ]
-{{- range $awsCredentials }}
-[[data.aws.credentials]]
-    profile = {{ .profile | quote }}
-    access_key_id = {{ .access_key_id | quote }}
-    secret_access_key = {{ .secret_access_key | quote }}
-    session_token = {{ .session_token | quote }}
-    region = {{ .region | quote }}
-{{- end }}
 {{- range $mavenRepos }}
 [[data.maven.repos]]
     id = {{ .id | quote }}
