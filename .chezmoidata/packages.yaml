@@ -293,6 +293,11 @@ packages:
         name: "mitmproxy"
       pacman:
         name: "mitmproxy"
+  gcloud:
+    type: "cli"
+    sources:
+      brew:
+        name: "gcloud-cli"
 
   # GUI applications
 
