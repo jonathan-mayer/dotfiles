@@ -955,15 +955,6 @@ check_update_stale() {
 }
 check_update_stale
 
-# opencode config alias
-opencode() {  
-  {{ if and .proxy .altproxy }}
-  useproxy command opencode "$@"
-  {{- else -}}
-  command opencode "$@"
-  {{- end }}
-}
-
 # alias for all commands that require alt proxy
 {{- range .altproxy_commands }}
 alias {{ . }}="useproxy command {{ . }}"
