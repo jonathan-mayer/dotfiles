@@ -257,28 +257,28 @@ packages:
     type: "cli"
     sources:
       brew:
-        name: "jdk"
+        name: "openjdk"
       pacman:
         name: "jdk-openjdk"
   jdk8:
     type: "cli"
     sources:
       brew:
-        name: "jdk8"
+        name: "openjdk@8"
       pacman:
         name: "jdk8-openjdk"
   jdk21:
     type: "cli"
     sources:
       brew:
-        name: "openjdk21"
+        name: "openjdk@21"
       pacman:
         name: "jdk21-openjdk"
   jdk17:
     type: "cli"
     sources:
       brew:
-        name: "openjdk17"
+        name: "openjdk@17"
       pacman:
         name: "jdk17-openjdk"
   lshw:
