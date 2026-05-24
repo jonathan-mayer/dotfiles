@@ -304,91 +304,127 @@ packages:
   caffeine:
     type: "gui"
     sources:
+      apt:
+        name: "caffeine"
       yay:
         name: "caffeine-ng"
   discord:
     type: "gui"
     sources:
+      apt:
+        name: "discord"
       pacman:
         name: "discord"
   filezilla:
     type: "gui"
     sources:
+      apt:
+        name: "filezilla"
       pacman:
         name: "filezilla"
   firefox:
     type: "gui"
     sources:
+      apt:
+        name: "firefox"
       pacman:
         name: "firefox"
   ghidra:
     type: "gui"
     sources:
+      apt:
+        name: "ghidra"
       pacman:
         name: "ghidra"
   gnome-calculator:
     type: "gui"
     sources:
+      apt:
+        name: "gnome-calculator"
       pacman:
         name: "gnome-calculator"
   gnome-clocks:
     type: "gui"
     sources:
+      apt:
+        name: "gnome-clocks"
       pacman:
         name: "gnome-clocks"
   gnome-console:
     type: "gui"
     sources:
+      apt:
+        name: "gnome-console"
       pacman:
         name: "gnome-console"
   gnome-disk-utility:
     type: "gui"
     sources:
+      apt:
+        name: "gnome-disk-utility"
       pacman:
         name: "gnome-disk-utility"
   gnome-logs:
     type: "gui"
     sources:
+      apt:
+        name: "gnome-logs"
       pacman:
         name: "gnome-logs"
   gnome-system-monitor:
     type: "gui"
     sources:
+      apt:
+        name: "gnome-system-monitor"
       pacman:
         name: "gnome-system-monitor"
   gnome-text-editor:
     type: "gui"
     sources:
+      apt:
+        name: "gnome-text-editor"
       pacman:
         name: "gnome-text-editor"
   gnome-boxes:
     type: "gui"
     sources:
+      apt:
+        name: "gnome-boxes"
       pacman:
         name: "gnome-boxes"
   simple-scan:
     type: "gui"
     sources:
+      apt:
+        name: "simple-scan"
       pacman:
         name: "simple-scan"
   virtualbox:
     type: "gui"
     sources:
+      apt:
+        name: "virtualbox"
       pacman:
         name: "virtualbox"
   inkscape:
     type: "gui"
     sources:
+      apt:
+        name: "inkscape"
       pacman:
         name: "inkscape"
   intellij:
     type: "gui"
     sources:
+      apt:
+        name: "intellij-idea-community"
       pacman:
         name: "intellij-idea-community-edition"
   gimp:
     type: "gui"
     sources:
+      apt:
+        name: "gimp"
       pacman:
         name: "gimp"
   elecwhat:
@@ -399,6 +435,8 @@ packages:
   grub-customizer:
     type: "gui"
     sources:
+      apt:
+        name: "grub-customizer"
       yay:
         name: "grub-customizer"
   jd-gui:
@@ -419,56 +457,78 @@ packages:
   prusa-slicer:
     type: "gui"
     sources:
+      apt:
+        name: "prusa-slicer"
       pacman:
         name: "prusa-slicer"
   qbittorrent:
     type: "gui"
     sources:
+      apt:
+        name: "qbittorrent"
       pacman:
         name: "qbittorrent"
   steam:
     type: "gui"
     sources:
+      apt:
+        name: "steam"
       pacman:
         name: "steam"
   signal:
     type: "gui"
     sources:
+      apt:
+        name: "signal-desktop"
       pacman:
         name: "signal-desktop"
   thunderbird:
     type: "gui"
     sources:
+      apt:
+        name: "thunderbird"
       pacman:
         name: "thunderbird"
   vlc:
     type: "gui"
     sources:
+      apt:
+        name: "vlc"
       pacman:
         name: "vlc"
   wireshark:
     type: "gui"
     sources:
+      apt:
+        name: "wireshark"
       pacman:
         name: "wireshark-qt"
   vscode:
     type: "gui"
     sources:
+      apt:
+        name: "code"
       pacman:
         name: "code"
   sqlitebrowser:
     type: "gui"
     sources:
+      apt:
+        name: "sqlitebrowser"
       pacman:
         name: "sqlitebrowser"
   gparted:
     type: "gui"
     sources:
+      apt:
+        name: "gparted"
       pacman:
         name: "gparted"
   krita:
     type: "gui"
     sources:
+      apt:
+        name: "krita"
       pacman:
         name: "krita"
   slack:
@@ -489,6 +549,8 @@ packages:
   pinta:
     type: "gui"
     sources:
+      apt:
+        name: "pinta"
       yay:
         name: "pinta"
   ventoy:
@@ -509,11 +571,15 @@ packages:
   obsidian:
     type: "gui"
     sources:
+      apt:
+        name: "obsidian"
       yay:
         name: "obsidian-bin"
   freefilesync:
     type: "gui"
     sources:
+      apt:
+        name: "freefilesync"
       yay:
         name: "freefilesync"
   nbtexplorer:
@@ -529,15 +595,21 @@ packages:
   kdeconnect:
     type: "gui"
     sources:
+      apt:
+        name: "kdeconnect"
       pacman:
         name: "kdeconnect"
   sshfs:
     type: "gui"
     sources:
+      apt:
+        name: "sshfs"
       pacman:
         name: "sshfs"
   krdc:
     type: "gui"
     sources:
+      apt:
+        name: "krdc"
       pacman:
         name: "krdc"
