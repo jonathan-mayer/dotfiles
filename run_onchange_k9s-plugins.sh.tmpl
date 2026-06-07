@@ -44,7 +44,7 @@ for plugin in "${MANAGED_PLUGINS[@]}"; do
   echo "Downloading k9s plugin: $plugin"
   if curl -sSfL "${REPO_BASE}/${plugin}.yaml" -o "${tmp_dir}/${plugin}.raw"; then
     # Strip the plugins: wrapper used by the main plugins.yaml format
-    yq '.plugins // .' "${tmp_dir}/${plugin}.raw" > "${tmp_dir}/${plugin}.yaml"
+    yq -y '.plugins // .' "${tmp_dir}/${plugin}.raw" > "${tmp_dir}/${plugin}.yaml"
     rm "${tmp_dir}/${plugin}.raw"
   else
     echo "WARNING: Failed to download k9s plugin: $plugin" >&2
@@ -67,9 +67,12 @@ fi
 # across different scopes, and wrap under the plugins: top-level key.
 # Without override, k9s rejects any shortcut already registered by a
 # built-in action or an earlier plugin in the same iteration pass.
-yq eval-all '. as $item ireduce ({}; . * $item)' "${stripped_files[@]}" \
-  | yq '(.[] | select(has("shortCut"))).override = true' \
-  | yq '{"plugins": .}' \
+# (Uses kislyuk/yq, a jq wrapper: -s slurps all docs into an array.)
+yq -y -s '
+  reduce .[] as $item ({}; . * $item)
+  | (.[] | select(has("shortCut"))).override = true
+  | {plugins: .}
+' "${stripped_files[@]}" \
   > "$PLUGINS_FILE"
 
 count=$(yq '.plugins | keys | length' "$PLUGINS_FILE")
