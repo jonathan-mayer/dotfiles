@@ -95,6 +95,13 @@
 
 {{- $default_ctx := promptStringOnce . "default_ctx" "Default Kubeconfig Context" -}}
 
+{{- $kubeconfigs := "" -}}
+{{- if and (hasKey . "k8s") (hasKey .k8s "kubeconfigs") -}}
+{{- $kubeconfigs = join "," .k8s.kubeconfigs -}}
+{{- else -}}
+{{- $kubeconfigs = promptString "Comma separated list of kubeconfig glob paths (e.g. ~/.kube/*/kubeconfig) [none]" -}}
+{{- end -}}
+
 {{- $k9s_plugins := "" -}}
 {{- if and (hasKey . "k9s") (hasKey .k9s "plugins") -}}
 {{- $k9s_plugins = join "," .k9s.plugins -}}
@@ -150,6 +157,14 @@
 [data.k9s]
     plugins = [
 {{- range split "," $k9s_plugins }}
+{{- if . }}
+      {{ . | quote }},
+{{- end }}
+{{- end }}
+    ]
+[data.k8s]
+    kubeconfigs = [
+{{- range split "," $kubeconfigs }}
 {{- if . }}
       {{ . | quote }},
 {{- end }}

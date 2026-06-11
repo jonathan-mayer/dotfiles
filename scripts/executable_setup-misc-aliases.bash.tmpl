@@ -49,21 +49,70 @@ dotenv() {
 
 # Kubernetes Context Alias
 export default_ctx={{ .default_ctx | quote }}
+
+: "${_ctx_base_kubeconfig:=${KUBECONFIG:-$HOME/.kube/config}}"
+
+_ctx_kubeconfig_globs=(
+{{- if and (hasKey . "k8s") (hasKey .k8s "kubeconfigs") }}
+{{- range .k8s.kubeconfigs }}
+  {{ . | quote }}
+{{- end }}
+{{- end }}
+)
+
+_ctx_kubeconfigs() {
+    local pattern path matches
+    for pattern in "${_ctx_kubeconfig_globs[@]}"; do
+        [[ -n "$pattern" ]] || continue
+        eval "matches=( $pattern )"
+        for path in "${matches[@]}"; do
+            [[ -f "$path" ]] || continue
+            printf '%s\t%s\n' "$(basename "$(dirname "$path")")" "$path"
+        done
+    done
+}
+
+_ctx_resolve_kubeconfig() {
+    local name="$1" entry
+    while IFS=$'\t' read -r kc_name kc_path; do
+        if [[ "$kc_name" == "$name" ]]; then
+            printf '%s\n' "$kc_path"
+            return 0
+        fi
+    done < <(_ctx_kubeconfigs)
+    return 1
+}
+
 ctx() {
     if [ $# -eq 0 ]; then # command was run without arguments
         kubectl config current-context 2>/dev/null
-        kubectl config get-contexts
-    elif [ -z "$1" ]; then
+        KUBECONFIG="$_ctx_base_kubeconfig" kubectl config get-contexts
+        _ctx_kubeconfigs | cut -f1
+    elif [ -z "$1" ] || [ "$1" == "none" ]; then
+        export KUBECONFIG="$_ctx_base_kubeconfig"
         kubectl config unset current-context
     elif [ "$1" == "-" ]; then
+        export KUBECONFIG="$_ctx_base_kubeconfig"
         kubectl config use-context "$default_ctx"
     else
-        kubectl config use-context "$1"
+        local kubeconfig
+        if kubeconfig="$(_ctx_resolve_kubeconfig "$1")"; then
+            export KUBECONFIG="$kubeconfig:$_ctx_base_kubeconfig"
+            local target
+            target="$(KUBECONFIG="$kubeconfig" kubectl config current-context 2>/dev/null)"
+            [ -z "$target" ] && target="$(KUBECONFIG="$kubeconfig" kubectl config get-contexts -o name 2>/dev/null | head -n1)"
+            [ -n "$target" ] && kubectl config use-context "$target" >/dev/null
+            echo "KUBECONFIG=$KUBECONFIG"
+            kubectl config current-context 2>/dev/null
+        else
+            export KUBECONFIG="$_ctx_base_kubeconfig"
+            kubectl config use-context "$1"
+        fi
     fi
 }
 _ctx() {
   [[ $COMP_CWORD -eq 1 ]] &&
-    COMPREPLY=( $(compgen -W "$(kubectl config get-contexts -o name)" -- "${COMP_WORDS[1]}") )
+    COMPREPLY=( $(compgen -W "none $(KUBECONFIG="$_ctx_base_kubeconfig" kubectl config get-contexts -o name 2>/dev/null) $(_ctx_kubeconfigs | cut -f1)" -- "${COMP_WORDS[1]}") )
 }
 complete -F _ctx ctx
 
@@ -88,7 +137,7 @@ inctx() {
 _inctx() {
   if [[ $COMP_CWORD -eq 1 ]]; then
     COMPREPLY=(
-      $(compgen -W "$(kubectl config get-contexts -o name 2>/dev/null)" -- "${COMP_WORDS[1]}")
+      $(compgen -W "$(KUBECONFIG="$_ctx_base_kubeconfig" kubectl config get-contexts -o name 2>/dev/null) $(_ctx_kubeconfigs | cut -f1)" -- "${COMP_WORDS[1]}")
     )
     return 0
   fi
