@@ -298,6 +298,11 @@ packages:
     sources:
       brew:
         name: "gcloud-cli"
+  kubelogin:
+    type: "cli"
+    sources:
+      brew:
+        name: "kubelogin"
 
   # GUI applications
 
