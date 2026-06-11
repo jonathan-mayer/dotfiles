@@ -50,7 +50,42 @@ dotenv() {
 # Kubernetes Context Alias
 export default_ctx={{ .default_ctx | quote }}
 
-: "${_ctx_base_kubeconfig:=${KUBECONFIG:-$HOME/.kube/config}}"
+_ctx_state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/ctx"
+_ctx_base_file="$_ctx_state_dir/base"
+_ctx_current_file="$_ctx_state_dir/current"
+
+if [ -f "$_ctx_base_file" ]; then
+    _ctx_base_kubeconfig="$(cat "$_ctx_base_file")"
+else
+    _ctx_base_kubeconfig="${KUBECONFIG:-$HOME/.kube/config}"
+    case "$_ctx_base_kubeconfig" in
+        *:*) _ctx_base_kubeconfig="$HOME/.kube/config" ;;
+    esac
+    mkdir -p "$_ctx_state_dir"
+    printf '%s\n' "$_ctx_base_kubeconfig" > "$_ctx_base_file"
+fi
+
+if [ -f "$_ctx_current_file" ]; then
+    export KUBECONFIG="$(cat "$_ctx_current_file")"
+fi
+
+: "${_ctx_local:=0}"
+
+_ctx_save() {
+    [ "$_ctx_local" = 1 ] && return 0
+    mkdir -p "$_ctx_state_dir"
+    printf '%s\n' "$KUBECONFIG" > "$_ctx_current_file"
+}
+
+_ctx_localize() {
+    [ "$_ctx_local" = 1 ] && return 0
+    _ctx_tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/ctx.XXXXXX")" || return 1
+    cp "$_ctx_base_kubeconfig" "$_ctx_tmpdir/base" 2>/dev/null
+    _ctx_base_kubeconfig="$_ctx_tmpdir/base"
+    _ctx_local=1
+    export KUBECONFIG="$_ctx_base_kubeconfig"
+    trap '[ -n "$_ctx_tmpdir" ] && rm -rf "$_ctx_tmpdir"' EXIT
+}
 
 _ctx_kubeconfig_globs=(
 {{- if and (hasKey . "k8s") (hasKey .k8s "kubeconfigs") }}
@@ -73,7 +108,7 @@ _ctx_kubeconfigs() {
 }
 
 _ctx_resolve_kubeconfig() {
-    local name="$1" entry
+    local name="$1" kc_name kc_path
     while IFS=$'\t' read -r kc_name kc_path; do
         if [[ "$kc_name" == "$name" ]]; then
             printf '%s\n' "$kc_path"
@@ -83,36 +118,74 @@ _ctx_resolve_kubeconfig() {
     return 1
 }
 
+# Selectable names: base contexts plus glob kubeconfig names.
+_ctx_names() {
+    echo "none $(KUBECONFIG="$_ctx_base_kubeconfig" kubectl config get-contexts -o name 2>/dev/null) $(_ctx_kubeconfigs | cut -f1)"
+}
+
+# Point KUBECONFIG at the base config only.
+_ctx_use_base() {
+    export KUBECONFIG="$_ctx_base_kubeconfig"
+}
+
+# Switch to a target: either a glob-managed kubeconfig or a base context.
+_ctx_switch() {
+    local name="$1" kubeconfig target
+    if ! kubeconfig="$(_ctx_resolve_kubeconfig "$name")"; then
+        _ctx_use_base
+        kubectl config use-context "$name"
+        return
+    fi
+
+    # In local mode, operate on a private copy so the real file is untouched.
+    if [ "$_ctx_local" = 1 ]; then
+        local copy="$_ctx_tmpdir/$(basename "$(dirname "$kubeconfig")")"
+        cp "$kubeconfig" "$copy" && kubeconfig="$copy"
+    fi
+
+    # Merge glob file first so its current-context wins while base stays visible.
+    export KUBECONFIG="$kubeconfig:$_ctx_base_kubeconfig"
+    target="$(KUBECONFIG="$kubeconfig" kubectl config current-context 2>/dev/null)"
+    [ -z "$target" ] && target="$(KUBECONFIG="$kubeconfig" kubectl config get-contexts -o name 2>/dev/null | head -n1)"
+    [ -n "$target" ] && kubectl config use-context "$target" >/dev/null
+    echo "KUBECONFIG=$KUBECONFIG"
+    kubectl config current-context 2>/dev/null
+}
+
 ctx() {
-    if [ $# -eq 0 ]; then # command was run without arguments
+    if [ "$1" == "-l" ] || [ "$1" == "--local" ]; then
+        _ctx_localize || return 1
+        shift
+        if [ $# -eq 0 ]; then
+            echo "KUBECONFIG=$KUBECONFIG (local)"
+            kubectl config current-context 2>/dev/null
+            return 0
+        fi
+    fi
+
+    if [ $# -eq 0 ]; then
         kubectl config current-context 2>/dev/null
         KUBECONFIG="$_ctx_base_kubeconfig" kubectl config get-contexts
         _ctx_kubeconfigs | cut -f1
-    elif [ -z "$1" ] || [ "$1" == "none" ]; then
-        export KUBECONFIG="$_ctx_base_kubeconfig"
-        kubectl config unset current-context
-    elif [ "$1" == "-" ]; then
-        export KUBECONFIG="$_ctx_base_kubeconfig"
-        kubectl config use-context "$default_ctx"
-    else
-        local kubeconfig
-        if kubeconfig="$(_ctx_resolve_kubeconfig "$1")"; then
-            export KUBECONFIG="$kubeconfig:$_ctx_base_kubeconfig"
-            local target
-            target="$(KUBECONFIG="$kubeconfig" kubectl config current-context 2>/dev/null)"
-            [ -z "$target" ] && target="$(KUBECONFIG="$kubeconfig" kubectl config get-contexts -o name 2>/dev/null | head -n1)"
-            [ -n "$target" ] && kubectl config use-context "$target" >/dev/null
-            echo "KUBECONFIG=$KUBECONFIG"
-            kubectl config current-context 2>/dev/null
-        else
-            export KUBECONFIG="$_ctx_base_kubeconfig"
-            kubectl config use-context "$1"
-        fi
+        return 0
     fi
+
+    case "$1" in
+        ""|none) _ctx_use_base; kubectl config unset current-context ;;
+        -)       _ctx_use_base; kubectl config use-context "$default_ctx" ;;
+        *)       _ctx_switch "$1" ;;
+    esac
+    _ctx_save
 }
+
 _ctx() {
-  [[ $COMP_CWORD -eq 1 ]] &&
-    COMPREPLY=( $(compgen -W "none $(KUBECONFIG="$_ctx_base_kubeconfig" kubectl config get-contexts -o name 2>/dev/null) $(_ctx_kubeconfigs | cut -f1)" -- "${COMP_WORDS[1]}") )
+    local names
+    names="$(_ctx_names)"
+    if [[ $COMP_CWORD -eq 1 ]]; then
+        COMPREPLY=( $(compgen -W "-l --local $names" -- "${COMP_WORDS[1]}") )
+    elif [[ $COMP_CWORD -eq 2 && ( "${COMP_WORDS[1]}" == "-l" || "${COMP_WORDS[1]}" == "--local" ) ]]; then
+        COMPREPLY=( $(compgen -W "$names" -- "${COMP_WORDS[2]}") )
+    fi
 }
 complete -F _ctx ctx
 
@@ -137,7 +210,7 @@ inctx() {
 _inctx() {
   if [[ $COMP_CWORD -eq 1 ]]; then
     COMPREPLY=(
-      $(compgen -W "$(KUBECONFIG="$_ctx_base_kubeconfig" kubectl config get-contexts -o name 2>/dev/null) $(_ctx_kubeconfigs | cut -f1)" -- "${COMP_WORDS[1]}")
+      $(compgen -W "$(_ctx_names)" -- "${COMP_WORDS[1]}")
     )
     return 0
   fi
