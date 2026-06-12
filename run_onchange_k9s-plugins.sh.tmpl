@@ -34,6 +34,56 @@ if [ ${#MANAGED_PLUGINS[@]} -eq 0 ]; then
   exit 0
 fi
 
+# Two incompatible tools share the name "yq", so detect which one is installed:
+#   - kislyuk/yq   : a Python wrapper around jq (jq syntax, -y for YAML out, -s slurp)
+#   - mikefarah/yq : a Go tool with its own expression language (eval / eval-all)
+# Probe for the -y flag, which only kislyuk/yq understands.
+if printf 'a: 1\n' | yq -y . >/dev/null 2>&1; then
+  YQ_FLAVOR=kislyuk
+else
+  YQ_FLAVOR=mikefarah
+fi
+
+# Strip the top-level `plugins:` wrapper (if present), emitting YAML.
+#   $1 = input file
+yq_strip() {
+  case "$YQ_FLAVOR" in
+    kislyuk)   yq -y '.plugins // .' "$1" ;;
+    mikefarah) yq    '.plugins // .' "$1" ;;
+  esac
+}
+
+# Merge all (already-stripped) plugin files into one map, force override=true on
+# every entry defining a shortCut, then wrap the result under a `plugins:` key.
+# Without override, k9s rejects any shortcut already registered by a built-in
+# action or an earlier plugin in the same iteration pass.
+#   $@ = input files
+yq_merge() {
+  case "$YQ_FLAVOR" in
+    kislyuk)
+      yq -y -s '
+        reduce .[] as $item ({}; . * $item)
+        | (.[] | select(has("shortCut"))).override = true
+        | {plugins: .}
+      ' "$@"
+      ;;
+    mikefarah)
+      yq ea '
+        (. as $item ireduce ({}; . * $item))
+        | (.[] | select(has("shortCut")) | .override) = true
+        | {"plugins": .}
+      ' "$@"
+      ;;
+  esac
+}
+
+# Count the entries under .plugins (plain integer on stdout).
+# `.plugins | length` returns the map size for both yq flavors.
+#   $1 = input file
+yq_count() {
+  yq '.plugins | length' "$1"
+}
+
 mkdir -p "$(dirname "$PLUGINS_FILE")"
 
 # Download each plugin source and collect stripped YAML into temp files
@@ -44,7 +94,7 @@ for plugin in "${MANAGED_PLUGINS[@]}"; do
   echo "Downloading k9s plugin: $plugin"
   if curl -sSfL "${REPO_BASE}/${plugin}.yaml" -o "${tmp_dir}/${plugin}.raw"; then
     # Strip the plugins: wrapper used by the main plugins.yaml format
-    yq -y '.plugins // .' "${tmp_dir}/${plugin}.raw" > "${tmp_dir}/${plugin}.yaml"
+    yq_strip "${tmp_dir}/${plugin}.raw" > "${tmp_dir}/${plugin}.yaml"
     rm "${tmp_dir}/${plugin}.raw"
   else
     echo "WARNING: Failed to download k9s plugin: $plugin" >&2
@@ -65,15 +115,8 @@ fi
 
 # Merge all entries, set override on each so k9s allows shared shortcuts
 # across different scopes, and wrap under the plugins: top-level key.
-# Without override, k9s rejects any shortcut already registered by a
-# built-in action or an earlier plugin in the same iteration pass.
-# (Uses kislyuk/yq, a jq wrapper: -s slurps all docs into an array.)
-yq -y -s '
-  reduce .[] as $item ({}; . * $item)
-  | (.[] | select(has("shortCut"))).override = true
-  | {plugins: .}
-' "${stripped_files[@]}" \
+yq_merge "${stripped_files[@]}" \
   > "$PLUGINS_FILE"
 
-count=$(yq '.plugins | keys | length' "$PLUGINS_FILE")
+count=$(yq_count "$PLUGINS_FILE")
 echo "k9s plugins.yaml written with $count plugin entries"

@@ -844,15 +844,27 @@ complete -F _git_commit_message_completion gitc
 
 # automatic semver tagging
 gittag() {
-  local type=$1
-  local bump=$2
+  local bump=$1
 
-  if [[ -z "$type" || -z "$bump" ]]; then
-    echo "Usage: gittag <release|rc> <major|minor|patch>"
+  if [[ -z "$bump" ]]; then
+    echo "Usage: gittag <major|minor|patch>"
+    echo "  release vs rc is auto-detected from your branch:"
+    echo "  main/master -> release, any other branch -> rc"
     return 1
   fi
 
   git fetch --tags
+
+  local current_branch type
+  current_branch=$(git rev-parse --abbrev-ref HEAD)
+
+  # release vs rc is determined entirely by the current branch
+  if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
+    type=release
+  else
+    type=rc
+  fi
+  echo "Branch '$current_branch' -> ${type}"
 
   # get latest release tag (exclude RCs)
   local latest_release_tag
@@ -860,12 +872,7 @@ gittag() {
 
   # set base version if no release tags exist
   if [[ -z "$latest_release_tag" ]]; then
-    if [[ "$type" == "release" ]]; then
-      latest_release_tag="0.0.0"
-    else
-      # for RC with no releases, use 0.0.0 as base
-      latest_release_tag="0.0.0"
-    fi
+    latest_release_tag="0.0.0"
   fi
 
   IFS='.' read -r major minor patch <<< "$latest_release_tag"
@@ -885,54 +892,26 @@ gittag() {
       ((patch++))
       ;;
     *)
-      echo "Invalid bump type: $bump (must be major|minor|patch)"
+      echo "Invalid bump: $bump (must be major|minor|patch)"
       return 1
       ;;
   esac
 
-  local new_tag base_rc latest_rc_tag rc_number warn_msg continue_msg
+  local new_tag base_rc latest_rc_tag rc_number
   base_rc="${major}.${minor}.${patch}"
-  current_branch=$(git rev-parse --abbrev-ref HEAD)
 
   if [[ "$type" == "release" ]]; then
     new_tag="$base_rc"
-    if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
-      warn_msg="Your selected type 'release' is typically used on main/master branches.
-If this wasn't intentional you might want to checkout main using 'gitmain'."
-      continue_msg="Continue creating release tag on this commit? [y/N] "
-    fi
-  elif [[ "$type" == "rc" ]]; then
-    # Match both "1.2.3rc1" and "1.2.3-rc1"
+  else
+    # rc: match both "1.2.3rc1" and "1.2.3-rc1"
     latest_rc_tag=$(git tag --list | grep -E "^${base_rc}(-?rc)[0-9]+$" | sort -V | tail -n1)
-
     if [[ -z "$latest_rc_tag" ]]; then
       new_tag="${base_rc}-rc1"
     else
-      # Extract rc number (works for both formats)
       rc_number=$(echo "$latest_rc_tag" | sed -E "s/^${base_rc}-?rc([0-9]+)$/\1/")
       ((rc_number++))
       new_tag="${base_rc}-rc${rc_number}"
     fi
-
-    if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
-      warn_msg="Your selected type 'rc' is typically used on feature branches.
-If this wasn't intentional you might want to use the 'release' type."
-      continue_msg="Continue creating rc tag on this commit? [y/N] "
-    fi
-  else
-    echo "Invalid type: $type (must be release|rc)"
-    return 1
-  fi
-
-  # If a warning was prepared, show it and confirm
-  if [[ -n "$warn_msg" ]]; then
-      echo "You are currently on branch: $current_branch."
-      echo "$warn_msg"
-      read -rp "$continue_msg" confirm
-      case "$confirm" in
-          [yY][eE][sS]|[yY]) ;;
-          *) echo "Aborted."; return 1 ;;
-      esac
   fi
 
   # create and push the tag
@@ -941,24 +920,109 @@ If this wasn't intentional you might want to use the 'release' type."
   echo "Created tag: $new_tag"
 }
 _gittag_complete() {
-  local cur prev
+  local cur
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
-  prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-  # first argument suggestions
+  # only argument: the version bump (release vs rc comes from the branch)
   if [[ $COMP_CWORD -eq 1 ]]; then
-    COMPREPLY=( $(compgen -W "release rc" -- "$cur") )
-    return 0
-  fi
-
-  # second argument suggestions
-  if [[ $COMP_CWORD -eq 2 ]]; then
     COMPREPLY=( $(compgen -W "major minor patch" -- "$cur") )
     return 0
   fi
 }
 complete -F _gittag_complete gittag
+
+# automatic tagging for the app+config version scheme
+# tag syntax: <major>.<minor>.<patch>[-rc<n>]-<config>[-rc<n>]
+#   - the second segment is the config version, which lives "under" the app version
+#   - the config version resets to 0 whenever the app version changes
+#   - most commits only bump the config version
+# the release/rc type is determined entirely by the current branch
+# (main/master -> release, any other branch -> rc).
+# an OPTIONAL app version (major.minor.patch) may be given:
+#   - omit it to continue the current app version
+#   - pass one to start a new app version at config 0 (release -> X-0, rc -> X-0-rc1)
+#   - it is required on first use, when no app+config tags exist yet
+gittagc() {
+  # args: [<app-version>]   (release vs rc comes from the branch)
+  local app_arg=$1
+
+  git fetch --tags
+
+  local current_branch sub new_tag app_ver
+  current_branch=$(git rev-parse --abbrev-ref HEAD)
+
+  # release vs rc is determined entirely by the current branch
+  if [[ "$current_branch" == "main" || "$current_branch" == "master" ]]; then
+    sub=release
+  else
+    sub=rc
+  fi
+  echo "Branch '$current_branch' -> ${sub}"
+
+  # pick the app version: an explicit arg wins, otherwise detect the latest in use
+  if [[ -n "$app_arg" ]]; then
+    if [[ ! "$app_arg" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      echo "Invalid app version: $app_arg (must be major.minor.patch, e.g. 1.5.0)"
+      return 1
+    fi
+    app_ver="$app_arg"
+  else
+    app_ver=$(git tag --list \
+      | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+(-rc[0-9]+)?$' \
+      | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)-.*/\1/' \
+      | sort -V | tail -n1)
+    if [[ -z "$app_ver" ]]; then
+      echo "No app+config tags found yet."
+      echo "Provide an app version to initialise, e.g.: gittagc <major.minor.patch>"
+      return 1
+    fi
+  fi
+
+  # latest released config number for this app version (rcs excluded)
+  local latest_cfg_rel cfg_num
+  latest_cfg_rel=$(git tag --list | grep -E "^${app_ver}-[0-9]+$" | sort -V | tail -n1)
+  if [[ -z "$latest_cfg_rel" ]]; then
+    cfg_num=0
+  else
+    cfg_num=$(echo "$latest_cfg_rel" | sed -E "s/^${app_ver}-([0-9]+)$/\1/")
+  fi
+
+  if [[ "$sub" == "release" ]]; then
+    # bump to the next config release (unless none exists yet, then release 0)
+    if [[ -n "$latest_cfg_rel" ]]; then
+      ((cfg_num++))
+    fi
+    new_tag="${app_ver}-${cfg_num}"
+  else
+    # rc: target the next config release number, then bump its rc counter
+    local target_cfg rc_num latest_rc
+    if [[ -z "$latest_cfg_rel" ]]; then
+      target_cfg=0
+    else
+      target_cfg=$((cfg_num + 1))
+    fi
+    latest_rc=$(git tag --list | grep -E "^${app_ver}-${target_cfg}-rc[0-9]+$" | sort -V | tail -n1)
+    if [[ -z "$latest_rc" ]]; then
+      rc_num=1
+    else
+      rc_num=$(echo "$latest_rc" | sed -E "s/^${app_ver}-${target_cfg}-rc([0-9]+)$/\1/")
+      ((rc_num++))
+    fi
+    new_tag="${app_ver}-${target_cfg}-rc${rc_num}"
+  fi
+
+  # don't clobber an existing tag
+  if git rev-parse -q --verify "refs/tags/${new_tag}" >/dev/null; then
+    echo "Tag already exists: $new_tag"
+    return 1
+  fi
+
+  # create and push the tag
+  git tag "$new_tag"
+  git push origin "$new_tag"
+  echo "Created tag: $new_tag"
+}
 
 # flux reconcile ssp component
 reconcilecomponent() {
