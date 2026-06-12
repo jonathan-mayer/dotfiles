@@ -88,6 +88,9 @@ _ctx_localize() {
 }
 
 _ctx_kubeconfig_globs=(
+{{- if and (hasKey . "k8s") (hasKey .k8s "clusters") (gt (len .k8s.clusters) 0) }}
+  "$HOME/.kube/managed/*/kubeconfig"
+{{- end }}
 {{- if and (hasKey . "k8s") (hasKey .k8s "kubeconfigs") }}
 {{- range .k8s.kubeconfigs }}
   {{ . | quote }}

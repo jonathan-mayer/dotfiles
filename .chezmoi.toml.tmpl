@@ -102,6 +102,38 @@
 {{- $kubeconfigs = promptString "Comma separated list of kubeconfig glob paths (e.g. ~/.kube/*/kubeconfig) [none]" -}}
 {{- end -}}
 
+{{- $k8s_clusters := list -}}
+{{- if and (hasKey . "k8s") (hasKey .k8s "clusters") -}}
+{{- $k8s_clusters = .k8s.clusters -}}
+{{- else -}}
+{{- range $i, $e := (until (promptInt "Number of managed kubeconfig clusters" | int)) -}}
+{{- $cname := promptString (printf "Cluster name %d" $i) -}}
+{{- $curl := promptString (printf "Cluster API server URL %d (e.g. https://1.2.3.4:6443)" $i) -}}
+{{- $cutype := promptString (printf "Auth type for %s (oidc/none) [none]" $cname) -}}
+{{- $cissuer := "" -}}
+{{- $cclient := "" -}}
+{{- $cscopes := "profile,email,groups" -}}
+{{- if eq $cutype "oidc" -}}
+{{- $cissuer = promptString (printf "  OIDC issuer URL for %s" $cname) -}}
+{{- $cclient = promptString (printf "  OIDC client ID for %s" $cname) -}}
+{{- $cscopes = promptString (printf "  OIDC extra scopes for %s [profile,email,offline_access]" $cname) -}}
+{{- if eq $cscopes "" -}}
+{{- $cscopes = "profile,email,offline_access" -}}
+{{- end -}}
+{{- else -}}
+{{- $cutype = "none" -}}
+{{- end -}}
+{{- $k8s_clusters = append $k8s_clusters (dict
+  "name" $cname
+  "url" $curl
+  "user_type" $cutype
+  "oidc_issuer_url" $cissuer
+  "oidc_client_id" $cclient
+  "oidc_extra_scope" $cscopes
+  "insecure" true) -}}
+{{- end -}}
+{{- end -}}
+
 {{- $k9s_plugins := "" -}}
 {{- if and (hasKey . "k9s") (hasKey .k9s "plugins") -}}
 {{- $k9s_plugins = join "," .k9s.plugins -}}
@@ -170,6 +202,16 @@
 {{- end }}
 {{- end }}
     ]
+{{- range $k8s_clusters }}
+[[data.k8s.clusters]]
+    name = {{ .name | quote }}
+    url = {{ .url | quote }}
+    user_type = {{ .user_type | quote }}
+    oidc_issuer_url = {{ .oidc_issuer_url | quote }}
+    oidc_client_id = {{ .oidc_client_id | quote }}
+    oidc_extra_scope = {{ .oidc_extra_scope | quote }}
+    insecure = {{ .insecure }}
+{{- end }}
 {{- range $mavenRepos }}
 [[data.maven.repos]]
     id = {{ .id | quote }}
