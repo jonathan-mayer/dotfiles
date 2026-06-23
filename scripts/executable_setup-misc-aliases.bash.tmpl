@@ -939,13 +939,15 @@ complete -F _gittag_complete gittag
 #   - most commits only bump the config version
 # the release/rc type is determined entirely by the current branch
 # (main/master -> release, any other branch -> rc).
-# an OPTIONAL app version (major.minor.patch) may be given:
-#   - omit it to continue the current app version
-#   - pass one to start a new app version at config 0 (release -> X-0, rc -> X-0-rc1)
-#   - it is required on first use, when no app+config tags exist yet
+# usage:
+#   gittagc                   bump config version
+#   gittagc config            bump config version (explicit)
+#   gittagc patch             bump app patch version, config resets to 0
+#   gittagc minor             bump app minor version, config resets to 0
+#   gittagc major             bump app major version, config resets to 0
+#   gittagc <x.x.x>           set app version explicitly, config resets to 0
 gittagc() {
-  # args: [<app-version>]   (release vs rc comes from the branch)
-  local app_arg=$1
+  local arg=${1:-config}
 
   git fetch --tags
 
@@ -960,56 +962,95 @@ gittagc() {
   fi
   echo "Branch '$current_branch' -> ${sub}"
 
-  # pick the app version: an explicit arg wins, otherwise detect the latest in use
-  if [[ -n "$app_arg" ]]; then
-    if [[ ! "$app_arg" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      echo "Invalid app version: $app_arg (must be major.minor.patch, e.g. 1.5.0)"
-      return 1
-    fi
-    app_ver="$app_arg"
-  else
-    app_ver=$(git tag --list \
-      | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+(-rc[0-9]+)?$' \
-      | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)-.*/\1/' \
-      | sort -V | tail -n1)
-    if [[ -z "$app_ver" ]]; then
-      echo "No app+config tags found yet."
-      echo "Provide an app version to initialise, e.g.: gittagc <major.minor.patch>"
-      return 1
-    fi
-  fi
+  # detect the current app version from existing config-style tags
+  local latest_app_ver
+  latest_app_ver=$(git tag --list \
+    | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+(-rc[0-9]+)?$' \
+    | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)-.*/\1/' \
+    | sort -V | tail -n1)
 
-  # latest released config number for this app version (rcs excluded)
-  local latest_cfg_rel cfg_num
-  latest_cfg_rel=$(git tag --list | grep -E "^${app_ver}-[0-9]+$" | sort -V | tail -n1)
-  if [[ -z "$latest_cfg_rel" ]]; then
-    cfg_num=0
-  else
-    cfg_num=$(echo "$latest_cfg_rel" | sed -E "s/^${app_ver}-([0-9]+)$/\1/")
-  fi
+  case "$arg" in
+    config)
+      # bump config on the current app version
+      if [[ -z "$latest_app_ver" ]]; then
+        echo "No app+config tags found yet."
+        echo "Provide an app version to initialise, e.g.: gittagc <major.minor.patch>"
+        return 1
+      fi
+      app_ver="$latest_app_ver"
+      ;;
 
-  if [[ "$sub" == "release" ]]; then
-    # bump to the next config release (unless none exists yet, then release 0)
-    if [[ -n "$latest_cfg_rel" ]]; then
-      ((cfg_num++))
+    major|minor|patch)
+      # bump the app version, config resets to 0
+      # if no tags exist yet, bump from 0.0.0
+      local amajor aminor apatch
+      IFS='.' read -r amajor aminor apatch <<< "${latest_app_ver:-0.0.0}"
+      case "$arg" in
+        major) ((amajor++)); aminor=0; apatch=0 ;;
+        minor) ((aminor++)); apatch=0 ;;
+        patch) ((apatch++)) ;;
+      esac
+      app_ver="${amajor}.${aminor}.${apatch}"
+      ;;
+
+    *)
+      # treat as an explicit app version
+      if [[ ! "$arg" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "Invalid argument: $arg"
+        echo "Expected: config | major | minor | patch | <major.minor.patch>"
+        return 1
+      fi
+      app_ver="$arg"
+      ;;
+  esac
+
+  # for app version changes (anything other than config), the tag is always <app_ver>-0
+  if [[ "$arg" != "config" ]]; then
+    if [[ "$sub" == "release" ]]; then
+      new_tag="${app_ver}-0"
+    else
+      # rc for a new app version targets config 0
+      local rc_num latest_rc
+      latest_rc=$(git tag --list | grep -E "^${app_ver}-0-rc[0-9]+$" | sort -V | tail -n1)
+      if [[ -z "$latest_rc" ]]; then
+        rc_num=1
+      else
+        rc_num=$(echo "$latest_rc" | sed -E "s/^${app_ver}-0-rc([0-9]+)$/\1/")
+        ((rc_num++))
+      fi
+      new_tag="${app_ver}-0-rc${rc_num}"
     fi
-    new_tag="${app_ver}-${cfg_num}"
   else
-    # rc: target the next config release number, then bump its rc counter
-    local target_cfg rc_num latest_rc
+    # bump config on the current app version
+    local latest_cfg_rel cfg_num
+    latest_cfg_rel=$(git tag --list | grep -E "^${app_ver}-[0-9]+$" | sort -V | tail -n1)
     if [[ -z "$latest_cfg_rel" ]]; then
-      target_cfg=0
+      cfg_num=0
     else
-      target_cfg=$((cfg_num + 1))
+      cfg_num=$(echo "$latest_cfg_rel" | sed -E "s/^${app_ver}-([0-9]+)$/\1/")
     fi
-    latest_rc=$(git tag --list | grep -E "^${app_ver}-${target_cfg}-rc[0-9]+$" | sort -V | tail -n1)
-    if [[ -z "$latest_rc" ]]; then
-      rc_num=1
+
+    if [[ "$sub" == "release" ]]; then
+      if [[ -n "$latest_cfg_rel" ]]; then
+        ((cfg_num++))
+      fi
+      new_tag="${app_ver}-${cfg_num}"
     else
-      rc_num=$(echo "$latest_rc" | sed -E "s/^${app_ver}-${target_cfg}-rc([0-9]+)$/\1/")
-      ((rc_num++))
+      local target_cfg rc_num latest_rc
+      if [[ -z "$latest_cfg_rel" ]]; then
+        target_cfg=0
+      else
+        target_cfg=$((cfg_num + 1))
+      fi
+      latest_rc=$(git tag --list | grep -E "^${app_ver}-${target_cfg}-rc[0-9]+$" | sort -V | tail -n1)
+      if [[ -z "$latest_rc" ]]; then
+        rc_num=1
+      else
+        rc_num=$(echo "$latest_rc" | sed -E "s/^${app_ver}-${target_cfg}-rc([0-9]+)$/\1/")
+        ((rc_num++))
+      fi
+      new_tag="${app_ver}-${target_cfg}-rc${rc_num}"
     fi
-    new_tag="${app_ver}-${target_cfg}-rc${rc_num}"
   fi
 
   # don't clobber an existing tag
