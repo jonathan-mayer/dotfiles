@@ -50,6 +50,7 @@
     "name" (promptString (printf "MCP name %d" $i))
     "type" (promptString (printf "MCP type %d" $i))
     "url" (promptString (printf "MCP URL %d [none]" $i))
+    "enabled" (promptBool (printf "Enable MCP %d? (y/n)" $i))
   ) -}}
 {{- end -}}
 {{- end -}}
@@ -175,6 +176,7 @@
     name = {{ .name | quote }}
     type = {{ .type | quote }}
     url = {{ .url | quote }}
+    enabled = {{ if hasKey . "enabled" }}{{ .enabled }}{{ else }}true{{ end }}
 {{- end }}
 [data.ai.providers.aws]
     profile = {{ $ai_aws_bedrock_profile | quote }}

@@ -30,7 +30,7 @@
 {{- $sep := "" -}}
 {{- range $mcps }}{{ $sep }}
     {{ .name | quote }}: {
-      "enabled": true,
+      "enabled": {{ if hasKey . "enabled" }}{{ .enabled }}{{ else }}true{{ end }},
       "type": {{ .type | quote }}{{- if .url }},
       "url": {{ .url | quote }}{{- end }}
     }
