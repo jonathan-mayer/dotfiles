@@ -298,6 +298,10 @@ _dev_path() {
       resolved="$dev_dir/${p#"$dev_dir_name"/}"
     elif [[ "$p" == dev || "$p" == "$dev_dir_name" ]]; then
       resolved="$dev_dir"
+    elif [[ "$p" == space ]]; then
+      resolved="$dev_dir/space"
+    elif [[ "$p" == space/* ]]; then
+      resolved="$dev_dir/${p}"
     else
       resolved="$main_dir/$p"
     fi
@@ -307,8 +311,10 @@ _dev_path() {
 
   if [[ -e "$resolved" ]]; then
     printf '%s\n' "$resolved"
-  else
+  elif [[ -e "$p" ]]; then
     printf '%s\n' "$p"
+  else
+    printf '%s\n' "$resolved"
   fi
 }
 _dev_path_completion() {
@@ -335,7 +341,7 @@ _dev_path_completion() {
 
   # Offer virtual root tokens at top level
   if [[ -z "$cur" || ( "$cur" != /* && "$cur" != ./* && "$cur" != ../* && "$cur" != */* ) ]]; then
-    local -a vwords=("chezmoi" "dev/" "${dev_dir_name}/" "${main_dir_name}/" "~" "." "..")
+    local -a vwords=("chezmoi" "dev/" "space/" "${dev_dir_name}/" "${main_dir_name}/" "~" "." "..")
     _add_unique $(compgen -W "${vwords[*]}" -- "$cur")
   fi
 
@@ -366,6 +372,9 @@ _dev_path_completion() {
   case "$cur" in
     dev/*)
       _dev_path_completion_under "$dev_dir" "dev" "${cur#dev/}"
+      ;;
+    space/*)
+      _dev_path_completion_under "$dev_dir/space" "space" "${cur#space/}"
       ;;
     "${dev_dir_name}"/*)
       _dev_path_completion_under "$dev_dir" "$dev_dir_name" "${cur#"$dev_dir_name"/}"
@@ -441,6 +450,17 @@ code() {
   return $rc
 }
 complete -F _dev_path_completion code
+
+chezmoi() {
+  command chezmoi "$@" || return $?
+  # After a successful apply, re-source bashrc in the current shell
+  case "$1" in
+    apply)
+      . ~/.bashrc
+      echo "(bashrc reloaded)"
+      ;;
+  esac
+}
 
 # glab clone group alias
 alias dev-reclone="cd $dev_dir && glab repo clone --group "$gitlab_group" --preserve-namespace --paginate .; cd -"
@@ -605,7 +625,7 @@ _git_in_repos() {
     for search_dir in "${search_dirs[@]}"; do
       while IFS= read -r -d '' gitdir; do
         repo_dirs+=("${gitdir%/.git}")
-      done < <(find "$search_dir" -name .git -type d -print0 2>/dev/null)
+      done < <(find -L "$search_dir" -name .git -type d -print0 2>/dev/null)
     done
   else
     repo_dirs=("${resolved_paths[@]}")

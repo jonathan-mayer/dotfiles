@@ -31,8 +31,8 @@ delete-local-refs() {
             read -p "${color_red}Do you want to delete the local branch '$branch'? (This branch only exists locally.)${color_reset} (y/N) " confirm
             [[ $confirm == [yY] ]] && should_delete=true
         else
-            read -p "${color_yellow}Do you want to delete the local branch '$branch'?${color_reset} (Y/n) " confirm
-            [[ ! $confirm == [nN] ]] && should_delete=true
+            # Remote branch is gone, safe to delete without asking
+            should_delete=true
         fi
 
         if $should_delete; then
