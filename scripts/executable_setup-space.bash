@@ -112,6 +112,9 @@ _space_write_json() {
 }
 
 # Generate a .code-workspace file so VS Code recognises git repos in symlinks
+# For links that are git repos, adds them directly.
+# For links that are directories containing git repos, adds each sub-repo separately.
+# Skips repos named "gitlab-profile".
 _space_write_code_workspace() {
   local space_path="$1"
   local name="$2"
@@ -120,15 +123,47 @@ _space_write_code_workspace() {
   local ws='{\n  "folders": ['
 
   local first=true
-  local entry
-  for entry in $(_space_read_json "$space_path"); do
-    local link_name="${entry%%:*}"
+  _ws_add_folder() {
+    local path="$1"
     if [[ "$first" == true ]]; then
       first=false
     else
       ws="$ws,"
     fi
-    ws="$ws"'\n    { "path": "'"$link_name"'" }'
+    ws="$ws"'\n    { "path": "'"$path"'", "name": "'"$path"'" }'
+  }
+
+  local entry
+  for entry in $(_space_read_json "$space_path"); do
+    local link_name="${entry%%:*}"
+    local link_target="$space_path/$link_name"
+
+    # Resolve symlink to check actual path
+    local real_path
+    real_path="$(readlink -f "$link_target" 2>/dev/null || echo "$link_target")"
+
+    if [[ -d "$real_path/.git" || -f "$real_path/.git" ]]; then
+      # Direct git repo
+      local repo_name="$(basename -- "$real_path")"
+      [[ "$repo_name" == "gitlab-profile" ]] && continue
+      _ws_add_folder "$link_name"
+    elif [[ -d "$real_path" ]]; then
+      # Directory containing repos - find them
+      local gitdir
+      while IFS= read -r -d '' gitdir; do
+        local repo_dir="${gitdir%/.git}"
+        local repo_name="$(basename -- "$repo_dir")"
+        [[ "$repo_name" == "gitlab-profile" ]] && continue
+        # Build relative path from space dir: link_name/sub/path
+        local rel="${repo_dir#"$real_path"}"
+        rel="${rel#/}"
+        if [[ -n "$rel" ]]; then
+          _ws_add_folder "$link_name/$rel"
+        else
+          _ws_add_folder "$link_name"
+        fi
+      done < <(find -L "$real_path" -name .git -print0 2>/dev/null)
+    fi
   done
 
   ws="$ws"'\n  ],\n  "settings": {\n    "terminal.integrated.cwd": "'"$space_path"'"\n  }\n}'
