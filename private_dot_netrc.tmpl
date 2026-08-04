@@ -1,5 +1,16 @@
 {{- range .git.machines }}
+{{- if ne .token "unset" }}
 machine {{ .url }}
         login {{ .name }}
         password {{ .token }}
+{{- end }}
+{{- end }}
+{{- if hasKey . "credentials" }}
+{{- range .credentials }}
+{{- if ne .password "unset" }}
+machine {{ .host }}
+        login {{ .username }}
+        password {{ .password }}
+{{- end }}
+{{- end }}
 {{- end }}

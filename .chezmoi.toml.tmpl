@@ -41,6 +41,19 @@
 {{- end -}}
 {{- end -}}
 
+{{- $credentials := list -}}
+{{- if hasKey . "credentials" -}}
+  {{- $credentials = .credentials -}}
+{{- else -}}
+{{- range $i, $e := (until (promptInt "Number of extra host credentials" | int)) -}}
+  {{- $credentials = append $credentials (dict
+    "host" (promptString (printf "Credential host %d (e.g. artifacts.example.com)" $i))
+    "username" (promptString (printf "Credential username %d" $i))
+    "password" "unset"
+  ) -}}
+{{- end -}}
+{{- end -}}
+
 {{- $aiMcps := list -}}
 {{- if and (hasKey . "ai") (hasKey .ai "mcps") -}}
   {{- $aiMcps = .ai.mcps -}}
@@ -169,6 +182,12 @@
     email = {{ .email | quote }}
     token = {{ .token | quote }}
     private = {{ .private }}
+{{- end }}
+{{- range $credentials }}
+[[data.credentials]]
+    host = {{ .host | quote }}
+    username = {{ .username | quote }}
+    password = {{ .password | quote }}
 {{- end }}
 [data.ai]
 {{- range $aiMcps }}
