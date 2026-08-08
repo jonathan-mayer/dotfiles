@@ -5,6 +5,16 @@
 
 {{- $remote := promptBoolOnce . "remote" "Is this a remote machine? (y/n)" -}}
 
+{{- $btop_dashboard := promptBoolOnce . "btop_dashboard.enabled" "Enable the btop dashboard on a dedicated mini monitor? (y/n)" -}}
+{{- $btop_dashboard_position := "" -}}
+{{- $btop_dashboard_size := "" -}}
+{{- if $btop_dashboard -}}
+{{- $btop_dashboard_position = promptStringOnce . "btop_dashboard.position" "  Dashboard monitor position, X,Y [3968,0]" -}}
+{{- $btop_dashboard_size = promptStringOnce . "btop_dashboard.size" "  Dashboard monitor size, W,H [960,640]" -}}
+{{- if eq $btop_dashboard_position "" }}{{ $btop_dashboard_position = "3968,0" }}{{ end -}}
+{{- if eq $btop_dashboard_size "" }}{{ $btop_dashboard_size = "960,640" }}{{ end -}}
+{{- end -}}
+
 {{- $gitlab_group := promptStringOnce . "dev.gitlab_group" "Base Gitlab group" -}}
 {{- $dev_path := promptStringOnce . "dev.dev_path" "Path to dev dir" -}}
 {{- $main_path := promptStringOnce . "dev.main_path" "Path to main development dir" -}}
@@ -171,6 +181,10 @@
 {{- end }}
 {{- end }}
     ]
+[data.btop_dashboard]
+    enabled = {{ $btop_dashboard }}
+    position = {{ $btop_dashboard_position | quote }}
+    size = {{ $btop_dashboard_size | quote }}
 [data.secrets]
     ai = {{ $ai | quote }}
     octoprint_key = {{ $octoprint_key | quote }}

@@ -19,3 +19,9 @@ scripts/setup-auto-update-go.bash
 {{- if eq .secrets.ai "unset" }}
 .continue/config.yaml
 {{- end }}
+
+{{- if not (and (hasKey . "btop_dashboard") .btop_dashboard.enabled) }}
+.config/autostart/btop-dashboard.desktop
+.config/btop/small-display.conf
+.local/share/konsole/BtopDashboard.profile
+{{- end }}
