@@ -1,11 +1,11 @@
 [General]
-Name=BtopDashboard
+Name=Dashboard
 Parent=FALLBACK/
 Comment=Dedicated btop dashboard on the mini monitor (managed by chezmoi)
 
-#* The window/tab title is what the KWin rule "btop-dashboard" matches on
-LocalTabTitleFormat=btop-dashboard
-RemoteTabTitleFormat=btop-dashboard
+#* The window/tab title is what the KWin rule "dashboard-btop" matches on
+LocalTabTitleFormat=dashboard-btop
+RemoteTabTitleFormat=dashboard-btop
 
 TerminalCenter=false
 TerminalMargin=0

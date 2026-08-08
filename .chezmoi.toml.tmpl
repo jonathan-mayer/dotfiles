@@ -5,14 +5,28 @@
 
 {{- $remote := promptBoolOnce . "remote" "Is this a remote machine? (y/n)" -}}
 
-{{- $btop_dashboard := promptBoolOnce . "btop_dashboard.enabled" "Enable the btop dashboard on a dedicated mini monitor? (y/n)" -}}
-{{- $btop_dashboard_position := "" -}}
-{{- $btop_dashboard_size := "" -}}
-{{- if $btop_dashboard -}}
-{{- $btop_dashboard_position = promptStringOnce . "btop_dashboard.position" "  Dashboard monitor position, X,Y [3968,0]" -}}
-{{- $btop_dashboard_size = promptStringOnce . "btop_dashboard.size" "  Dashboard monitor size, W,H [960,640]" -}}
-{{- if eq $btop_dashboard_position "" }}{{ $btop_dashboard_position = "3968,0" }}{{ end -}}
-{{- if eq $btop_dashboard_size "" }}{{ $btop_dashboard_size = "960,640" }}{{ end -}}
+{{- /* Dedicated dashboard (btop + media) on a secondary/mini monitor, KDE Wayland */ -}}
+{{- /* Migrate transparently from the older `btop_dashboard` key so the prompts don't reappear */ -}}
+{{- $dash_enabled := false -}}
+{{- $dash_position := "3968,0" -}}
+{{- $dash_size := "960,640" -}}
+{{- $dash_media_root := "/mnt/media/tv" -}}
+{{- if and (not (hasKey . "dashboard")) (hasKey . "btop_dashboard") -}}
+{{-   $dash_enabled = .btop_dashboard.enabled -}}
+{{-   $dash_position = .btop_dashboard.position -}}
+{{-   $dash_size = .btop_dashboard.size -}}
+{{- else -}}
+{{-   $dash_enabled = promptBoolOnce . "dashboard.enabled" "Enable the dashboard on a dedicated mini monitor? (y/n)" -}}
+{{-   if $dash_enabled -}}
+{{-     $dash_position = promptStringOnce . "dashboard.position" "  Dashboard monitor position, X,Y [3968,0]" -}}
+{{-     $dash_size = promptStringOnce . "dashboard.size" "  Dashboard monitor size, W,H [960,640]" -}}
+{{-     if eq $dash_position "" }}{{ $dash_position = "3968,0" }}{{ end -}}
+{{-     if eq $dash_size "" }}{{ $dash_size = "960,640" }}{{ end -}}
+{{-   end -}}
+{{- end -}}
+{{- if $dash_enabled -}}
+{{-   $dash_media_root = promptStringOnce . "dashboard.media_root" "  Dashboard media library root [/mnt/media/tv]" -}}
+{{-   if eq $dash_media_root "" }}{{ $dash_media_root = "/mnt/media/tv" }}{{ end -}}
 {{- end -}}
 
 {{- $gitlab_group := promptStringOnce . "dev.gitlab_group" "Base Gitlab group" -}}
@@ -181,10 +195,11 @@
 {{- end }}
 {{- end }}
     ]
-[data.btop_dashboard]
-    enabled = {{ $btop_dashboard }}
-    position = {{ $btop_dashboard_position | quote }}
-    size = {{ $btop_dashboard_size | quote }}
+[data.dashboard]
+    enabled = {{ $dash_enabled }}
+    position = {{ $dash_position | quote }}
+    size = {{ $dash_size | quote }}
+    media_root = {{ $dash_media_root | quote }}
 [data.secrets]
     ai = {{ $ai | quote }}
     octoprint_key = {{ $octoprint_key | quote }}

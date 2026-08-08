@@ -20,8 +20,9 @@ scripts/setup-auto-update-go.bash
 .continue/config.yaml
 {{- end }}
 
-{{- if not (and (hasKey . "btop_dashboard") .btop_dashboard.enabled) }}
-.config/autostart/btop-dashboard.desktop
-.config/btop/small-display.conf
-.local/share/konsole/BtopDashboard.profile
+{{- if not (and (hasKey . "dashboard") .dashboard.enabled) }}
+.config/autostart/dashboard-btop.desktop
+.config/btop/dashboard.conf
+.local/share/konsole/Dashboard.profile
+scripts/setup-dashboard.bash
 {{- end }}

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Dashboard: btop (mini monitor)
+Comment=Starts the btop dashboard on the dedicated mini monitor. Placed borderless and fullscreen by the KWin rule "dashboard-btop".
+Exec=bash -c "source {{ .chezmoi.homeDir }}/scripts/setup-dashboard.bash && dashboard btop"
+Icon=utilities-system-monitor
+Terminal=false
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-after=panel

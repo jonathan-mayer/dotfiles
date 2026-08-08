@@ -1,0 +1,216 @@
+#! /bin/bash
+# Control the dedicated mini-monitor dashboard.
+#
+#   dashboard btop [stop]              the btop dashboard
+#   dashboard watch <series>           shuffle-play a series folder in mpv
+#   dashboard watch stop|list          control / browse media playback
+#
+# Window placement is handled by the KWin rules "dashboard-btop" and
+# "dashboard-media" (see run_onchange_kwin-dashboard-btop.sh.tmpl), which match
+# on the fixed window titles set below.
+
+DASHBOARD_MEDIA_ROOT="${DASHBOARD_MEDIA_ROOT:-{{ .dashboard.media_root }}}"
+DASHBOARD_MEDIA_EXTS="${DASHBOARD_MEDIA_EXTS:-mkv mp4 avi m4v mov webm mpg mpeg wmv flv ts}"
+
+_dashboard_run_dir() { printf '%s\n' "${XDG_RUNTIME_DIR:-/tmp}"; }
+_dashboard_media_pidfile() { printf '%s/dashboard-media.pid\n' "$(_dashboard_run_dir)"; }
+_dashboard_btop_pidfile() { printf '%s/dashboard-btop.pid\n' "$(_dashboard_run_dir)"; }
+
+# Launch detached, recording the *real* pid of the exec'd program.
+# `setsid cmd &` + `$!` is unreliable: in an interactive shell the background
+# job is already a process group leader, so setsid forks and $! is a
+# short-lived parent, leaving a stale pidfile. The wrapper writes its own pid
+# and then execs, so the pidfile always holds the final process.
+_dashboard_spawn() {  # $1 = pidfile, rest = command
+  local pidfile="$1"; shift
+  setsid bash -c 'echo $$ > "$1"; shift; exec "$@"' _ "$pidfile" "$@" \
+    >/dev/null 2>&1 </dev/null &
+}
+
+# Stop a tracked process, falling back to matching a unique argv pattern so
+# orphans from an earlier stale pidfile (or a window started at login) are
+# still cleaned up.
+_dashboard_kill() {  # $1 = pidfile, $2 = pgrep -f pattern, $3 = label, $4 = expected binary
+  local pidfile="$1" pattern="$2" label="$3" binary="$4" pid pids=() stopped=0
+  if [ -f "$pidfile" ]; then
+    pid="$(cat "$pidfile" 2>/dev/null)"
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null && { echo "dashboard: stopped $label (pid $pid)"; stopped=1; }
+    fi
+    rm -f "$pidfile"
+  fi
+  # fallback: match our own unique argv, never a hand-started player/terminal.
+  # The binary check keeps an unrelated shell that merely mentions the pattern
+  # on its command line (a grep, an editor, this function's own caller) safe.
+  while IFS= read -r pid; do
+    [ -n "$pid" ] || continue
+    [ "$pid" = "$$" ] && continue
+    [ "$(ps -o comm= -p "$pid" 2>/dev/null)" = "$binary" ] || continue
+    pids+=("$pid")
+  done < <(
+    pgrep -u "$UID" -f -- "$pattern" 2>/dev/null
+  )
+  if [ "${#pids[@]}" -gt 0 ]; then
+    kill "${pids[@]}" 2>/dev/null &&
+      echo "dashboard: stopped orphaned $label (pid ${pids[*]})"
+    stopped=1
+  fi
+  [ "$stopped" -eq 1 ] || echo "dashboard: no $label running"
+}
+
+# resolve a fuzzy query to exactly one series directory
+_dashboard_find_series() {
+  local query="$1" matches=() d
+  [ -d "$DASHBOARD_MEDIA_ROOT" ] || { echo "dashboard: no such directory: $DASHBOARD_MEDIA_ROOT" >&2; return 1; }
+
+  # an explicit path wins over a fuzzy match
+  if [ -d "$query" ]; then printf '%s\n' "$query"; return 0; fi
+  if [ -d "$DASHBOARD_MEDIA_ROOT/$query" ]; then printf '%s\n' "$DASHBOARD_MEDIA_ROOT/$query"; return 0; fi
+
+  while IFS= read -r d; do matches+=("$d"); done < <(
+    find "$DASHBOARD_MEDIA_ROOT" -mindepth 1 -maxdepth 1 -type d -iname "*${query}*" | sort
+  )
+
+  case "${#matches[@]}" in
+    0) echo "dashboard: no series matching '$query' in $DASHBOARD_MEDIA_ROOT" >&2; return 1 ;;
+    1) printf '%s\n' "${matches[0]}"; return 0 ;;
+    *)
+      echo "dashboard: '$query' is ambiguous, ${#matches[@]} matches:" >&2
+      printf '  %s\n' "${matches[@]##*/}" >&2
+      return 1 ;;
+  esac
+}
+
+# build the find expression for the configured extensions
+_dashboard_find_media() {  # $1 = directory
+  local args=() ext first=1
+  for ext in $DASHBOARD_MEDIA_EXTS; do
+    if [ $first -eq 1 ]; then args+=(-iname "*.${ext}"); first=0
+    else args+=(-o -iname "*.${ext}"); fi
+  done
+  find "$1" -type f \( "${args[@]}" \) -print
+}
+
+_dashboard_watch() {
+  local sub="${1:-}"
+
+  case "$sub" in
+    stop)
+      _dashboard_kill "$(_dashboard_media_pidfile)" "--title=dashboard-media" media mpv
+      return ;;
+    list)
+      shift
+      local query="${*:-}"
+      find "$DASHBOARD_MEDIA_ROOT" -mindepth 1 -maxdepth 1 -type d \
+        ${query:+-iname "*${query}*"} -printf '%f\n' | sort
+      return ;;
+    "")
+      echo "usage: dashboard watch <series>|stop|list" >&2
+      return 1 ;;
+  esac
+
+  local query="$*" target playlist count label
+  playlist="$(mktemp -t dashboard-playlist.XXXXXX)"
+
+  # A single file is playable too, not just a directory.
+  if [ -f "$query" ]; then
+    target="$(realpath -- "$query")"
+    printf '%s\n' "$target" > "$playlist"
+    label="${target##*/}"
+  else
+    target="$(_dashboard_find_series "$query")" || { rm -f "$playlist"; return 1; }
+    # Absolute paths are required: mpv resolves relative playlist entries
+    # against the playlist file's directory (/tmp), not the current directory.
+    target="$(realpath -- "$target")"
+    _dashboard_find_media "$target" | shuf > "$playlist"
+    label="${target##*/}"
+  fi
+
+  count="$(wc -l < "$playlist")"
+  if [ "$count" -eq 0 ]; then
+    echo "dashboard: no playable files in $label" >&2
+    rm -f "$playlist"; return 1
+  fi
+
+  # replace anything already on the dashboard
+  _dashboard_kill "$(_dashboard_media_pidfile)" "--title=dashboard-media" media mpv >/dev/null 2>&1
+
+  if [ "$count" -eq 1 ]; then
+    echo "dashboard: playing $label"
+  else
+    echo "dashboard: shuffling $count files from $label"
+  fi
+  _dashboard_spawn "$(_dashboard_media_pidfile)" \
+    mpv --playlist="$playlist" \
+        --title=dashboard-media \
+        --fullscreen --mute=yes \
+        --loop-playlist=inf \
+        --no-terminal --no-osc
+  # mpv reads the playlist at startup; clean up shortly after
+  ( sleep 30; rm -f "$playlist" ) >/dev/null 2>&1 &
+}
+
+_dashboard_btop() {
+  case "${1:-}" in
+    stop)
+      _dashboard_kill "$(_dashboard_btop_pidfile)" "--profile Dashboard" btop konsole
+      return ;;
+  esac
+
+  _dashboard_spawn "$(_dashboard_btop_pidfile)" \
+    konsole --separate --profile Dashboard \
+            --hide-menubar --hide-tabbar --hide-toolbars --fullscreen \
+            -e btop --config "$HOME/.config/btop/dashboard.conf"
+}
+
+dashboard() {
+  local cmd="${1:-}"; shift 2>/dev/null || true
+
+  case "$cmd" in
+    btop)  _dashboard_btop "$@" ;;
+    watch) _dashboard_watch "$@" ;;
+    ""|-h|--help|help)
+      cat <<'EOF'
+usage: dashboard <command>
+
+  btop                 start the btop dashboard
+  btop stop            stop the btop dashboard
+  watch <series>       shuffle-play a series, fullscreen and muted
+  watch stop           stop media playback
+  watch list [query]   list available series folders
+EOF
+      ;;
+    *)
+      echo "dashboard: unknown command '$cmd' (try: dashboard help)" >&2
+      return 1 ;;
+  esac
+}
+
+_dashboard() {
+  local cur prev
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+  if [ "$COMP_CWORD" -eq 1 ]; then
+    COMPREPLY=($(compgen -W "btop watch help" -- "$cur"))
+    return
+  fi
+
+  case "${COMP_WORDS[1]}" in
+    btop)
+      [ "$COMP_CWORD" -eq 2 ] && COMPREPLY=($(compgen -W "stop" -- "$cur"))
+      ;;
+    watch)
+      local IFS=$'\n'
+      # a path-looking word completes as a path, anything else as a series name
+      if [[ "$cur" == */* || "$cur" == .* || "$cur" == ~* ]]; then
+        COMPREPLY=($(compgen -o plusdirs -f -- "$cur"))
+      else
+        COMPREPLY=($(compgen -W "stop
+list
+$(find "$DASHBOARD_MEDIA_ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort)" -- "$cur"))
+      fi
+      ;;
+  esac
+}
+complete -F _dashboard dashboard
