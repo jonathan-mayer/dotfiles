@@ -652,6 +652,7 @@ _git_in_repos() {
 
 # git goto main (single repo, current directory)
 _gitmain_here() {
+  _git_require_repo gitmain || return 1
   current_branch=$(git rev-parse --abbrev-ref HEAD)
   if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
     git fetch origin main:main || return 1
@@ -728,6 +729,21 @@ gitopen() {
 }
 complete -F _dev_path_completion gitopen
 
+# guard: bail out early when the current directory is not inside a git repo
+# usage: _git_require_repo <command name> || return 1
+_git_require_repo() {
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "Error: '$PWD' is not a git repository." >&2
+        echo "Run '${1:-this command}' inside a repo, or use '-r' / '-- <repo>...' to target repos below this directory." >&2
+        return 1
+    fi
+    # inside a bare repo or a .git dir there is no worktree to commit in
+    if [[ "$(git rev-parse --is-inside-git-dir 2>/dev/null)" == "true" ]]; then
+        echo "Error: '$PWD' is inside a .git directory, not a working tree." >&2
+        return 1
+    fi
+}
+
 # git commit to branch helper
 _git_branch_helper() {
   # convert commit message to branch syntax (e.g. "fix/something-again")
@@ -760,6 +776,8 @@ gitcb() {
     local _has_sep=false
     for arg in "$@"; do [[ "$arg" == "--" ]] && { _has_sep=true; break; }; done
     if $_has_sep; then _git_in_repos gitcb "$@"; return; fi
+
+    _git_require_repo gitcb || return 1
 
     local message="$*" # something like "fix: something again"
     message=$(printf '%s\n' "$message" | sed 's/  */ /g') # normalize whitespaces
@@ -813,6 +831,8 @@ gitb() {
     for arg in "$@"; do [[ "$arg" == "--" ]] && { _has_sep=true; break; }; done
     if $_has_sep; then _git_in_repos gitb "$@"; return; fi
 
+    _git_require_repo gitb || return 1
+
     local input="$*" # something like "fix: something again"
     input=$(printf '%s\n' "$input" | sed 's/  */ /g') # normalize whitespaces
 
@@ -839,6 +859,8 @@ gitc() {
     local _has_sep=false
     for arg in "$@"; do [[ "$arg" == "--" ]] && { _has_sep=true; break; }; done
     if $_has_sep; then _git_in_repos gitc "$@"; return; fi
+
+    _git_require_repo gitc || return 1
 
     local input="$*" # something like "fix: something again"
     input=$(printf '%s\n' "$input" | sed 's/  */ /g') # normalize whitespaces
@@ -889,6 +911,8 @@ gittag() {
     echo "  main/master -> release, any other branch -> rc"
     return 1
   fi
+
+  _git_require_repo gittag || return 1
 
   git fetch --tags
 
@@ -997,6 +1021,8 @@ gittagc() {
   if $_has_sep; then _git_in_repos gittagc "$@"; return; fi
 
   local arg=${1:-config}
+
+  _git_require_repo gittagc || return 1
 
   git fetch --tags
 
