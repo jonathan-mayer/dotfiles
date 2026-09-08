@@ -1149,7 +1149,9 @@ complete -F _reconcilecomponent_completion reconcilecomponent
 
 
 # run a repo check in the current repo, or - when the current directory is not
-# a repo itself but contains some - in every repo found underneath it
+# a repo itself but contains some - in every repo found underneath it.
+# Stays completely silent for repos that have nothing to report; the checks
+# name the repo themselves via _git_check_scope when they do print something.
 _git_check_in_repos() {
   local func="$1"
 
@@ -1164,11 +1166,16 @@ _git_check_in_repos() {
   local dir
   while IFS= read -r -d '' gitdir; do
     dir="${gitdir%/.git}"
-    echo "==> $dir"
     cd "$dir" || continue
-    "$func"
+    _git_check_repo="${dir#./}" "$func"
     cd "$orig_dir" || return 1
   done < <(find -L . -maxdepth 3 -name .git -type d -print0 2>/dev/null)
+}
+
+# prefix for messages emitted by a repo check, naming the repo when the check
+# is running across multiple repos
+_git_check_scope() {
+  [[ -n "$_git_check_repo" ]] && printf '%s: ' "$_git_check_repo"
 }
 
 # check if user is on stale branch
@@ -1191,7 +1198,7 @@ _check_on_stale_branch_here() {
     | awk '$2 == "track:[gone]" || $3 == "upstream:" {sub("refs/heads/", "", $1); print $1}')"
 
   if printf '%s\n' "$stale" | grep -Fxq -- "$current"; then
-    echo "Current branch '$current' is stale (upstream gone or not set)."
+    echo "$(_git_check_scope)Current branch '$current' is stale (upstream gone or not set)."
     printf "Checkout main now? [Y/n] "
     local reply
     IFS= read -r reply
@@ -1242,7 +1249,7 @@ _check_behind_upstream_here() {
   # Pull only if behind > 0 and ahead == 0
   if [ "${behind:-0}" -gt 0 ] && [ "${ahead:-0}" -eq 0 ]; then
     git pull --ff-only >/dev/null
-    echo "Branch '$branch' was behind '$upstream' by $behind commit(s). Changes were pulled."
+    echo "$(_git_check_scope)Branch '$branch' was behind '$upstream' by $behind commit(s). Changes were pulled."
   fi
 }
 check_behind_upstream() {
