@@ -4,7 +4,11 @@
 {{- end -}}
 {
   "$schema": "https://opencode.ai/config.json",
-  "permission": {},
+  "permission": {
+    "external_directory": {
+      "/tmp/*": "allow"
+    }
+  },
 {{- if and (hasKey . "ai") (hasKey .ai "providers") (hasKey .ai.providers "aws") (ne .ai.providers.aws.profile "") }}
   "provider": {
     "amazon-bedrock": {
@@ -18,9 +22,9 @@
   },
 {{- end }}
   "mcp": {
-    {{ /* Additional Setup:
+{{- /* Additional Setup:
       $ npx playwright install chrome firefox
-    */ }}
+*/}}
     "playwright": {
       "type": "local",
       "command": [

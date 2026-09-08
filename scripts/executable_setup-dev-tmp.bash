@@ -1,5 +1,5 @@
 # dev-tmp - temporary git worktrees for branch-isolated work
-# Creates worktrees in $dev_dir/.tmp/ for quick parallel branch work
+# Creates worktrees in $dev_dir/.tmp/ and opens them in VS Code.
 # These are meant to be short-lived and deleted when done.
 
 _dev_tmp_dir() {
@@ -12,9 +12,11 @@ dev-tmp() {
 
   if [[ -z "$devpath" ]]; then
     printf 'usage: dev-tmp <devpath> [branch]\n' >&2
-    printf '\nCreates a temporary git worktree for branch-isolated work.\n' >&2
+    printf '\nCreates a temporary git worktree for branch-isolated work and opens it in VS Code.\n' >&2
     printf 'If branch is omitted, creates a detached HEAD at current commit.\n' >&2
     printf 'If branch does not exist, creates it from HEAD.\n' >&2
+    printf 'Repeated calls for the same devpath/branch create additional worktrees\n' >&2
+    printf 'with a timestamp suffix instead of reusing the existing one.\n' >&2
     return 1
   fi
 
@@ -29,26 +31,31 @@ dev-tmp() {
   fi
 
   # Determine worktree directory name
+  local branch_safe=""
   if [[ -n "$branch" ]]; then
     # Sanitize branch name for directory use
-    local branch_safe="${branch//\//-}"
+    branch_safe="${branch//\//-}"
     tmp_path="$tmp_base/${link_name}--${branch_safe}"
   else
     tmp_path="$tmp_base/${link_name}--detached"
   fi
 
-  if [[ -d "$tmp_path" ]]; then
-    printf 'worktree already exists: %s\n' "$tmp_path"
-    printf 'cd into it or remove with: dev-tmp-rm %s\n' "$devpath"
-    cd "$tmp_path" || return 1
-    return 0
+  # Allow multiple tmp worktrees of the same path: if the preferred name is
+  # taken, fall back to a timestamped one instead of reusing it.
+  local duplicate=false
+  if [[ -e "$tmp_path" ]]; then
+    duplicate=true
+    tmp_path="${tmp_path}-$(date +%y%m%d-%H%M%S)"
   fi
 
   mkdir -p "$tmp_base"
 
   if [[ -n "$branch" ]]; then
-    # Check if branch exists
-    if git -C "$source_path" rev-parse --verify "$branch" >/dev/null 2>&1; then
+    if [[ "$duplicate" == true ]]; then
+      # git refuses a second worktree on an already checked out branch,
+      # so additional worktrees are detached at that branch instead.
+      git -C "$source_path" worktree add --detach "$tmp_path" "$branch"
+    elif git -C "$source_path" rev-parse --verify "$branch" >/dev/null 2>&1; then
       # Existing branch
       git -C "$source_path" worktree add "$tmp_path" "$branch"
     else
@@ -68,8 +75,8 @@ dev-tmp() {
   printf '\ncreated tmp worktree: %s\n' "$tmp_path"
   printf 'source: %s\n' "$source_path"
   [[ -n "$branch" ]] && printf 'branch: %s\n' "$branch"
-  printf '\ncd-ing into worktree...\n'
-  cd "$tmp_path" || return 1
+  printf '\nopening worktree in VS Code...\n'
+  code "$tmp_path"
 }
 
 dev-tmp-rm() {

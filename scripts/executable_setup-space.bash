@@ -57,6 +57,14 @@ _space_add_link() {
 
   source_path="$(_dev_path "$devpath")"
 
+  if [[ ! -e "$source_path" ]]; then
+    printf 'warning: source does not exist: %s\n' "$source_path" >&2
+    return 1
+  fi
+
+  # Fully resolve the path so the space never links to another symlink
+  source_path="$(readlink -f "$source_path")"
+
   # Resolve collisions
   local final_name="$link_name"
   local i=2
@@ -65,17 +73,12 @@ _space_add_link() {
     ((i++))
   done
 
-  if [[ ! -e "$source_path" ]]; then
-    printf 'warning: source does not exist: %s\n' "$source_path" >&2
-    return 1
-  fi
-
   ln -s "$source_path" "$space_path/$final_name"
-  printf '  %s -> %s\n' "$final_name" "$devpath"
+  printf '  %s -> %s\n' "$final_name" "$source_path"
 
   # Return the link info for space.json
   printf '%s\n' "$final_name" >> "$space_path/.space_links_tmp"
-  printf '%s\n' "$devpath" >> "$space_path/.space_sources_tmp"
+  printf '%s\n' "$source_path" >> "$space_path/.space_sources_tmp"
 }
 
 # Write space.json from temp files
@@ -109,6 +112,9 @@ _space_write_json() {
 
   # Regenerate .code-workspace file
   _space_write_code_workspace "$space_path" "$name"
+
+  # Regenerate opencode.json
+  _space_write_opencode_json "$space_path"
 }
 
 # Generate a .code-workspace file so VS Code recognises git repos in symlinks
@@ -134,6 +140,40 @@ _space_write_code_workspace() {
   ws="$ws"'\n  ],\n  "settings": {\n    "terminal.integrated.cwd": "'"$space_path"'"\n  }\n}'
 
   printf "$ws\n" > "$ws_file"
+}
+
+# Generate an opencode.json declaring every link target as a named reference.
+# opencode expands each reference path into an external_directory allow rule,
+# so the space keeps access to the real directories even after symlink
+# resolution.
+_space_write_opencode_json() {
+  local space_path="$1"
+  local oc_file="$space_path/opencode.json"
+
+  local oc='{\n  "$schema": "https://opencode.ai/config.json",\n  "references": {'
+
+  local first=true
+  local entry
+  for entry in $(_space_read_json "$space_path"); do
+    local link_name="${entry%%:*}"
+    local source="${entry#*:}"
+
+    local resolved
+    resolved="$(readlink -f "$space_path/$link_name" 2>/dev/null)"
+    [[ -z "$resolved" ]] && resolved="$(readlink -f "$source" 2>/dev/null)"
+    [[ -z "$resolved" || ! -d "$resolved" ]] && continue
+
+    if [[ "$first" == true ]]; then
+      first=false
+    else
+      oc="$oc,"
+    fi
+    oc="$oc"'\n    "'"$link_name"'": { "path": "'"$resolved"'" }'
+  done
+
+  oc="$oc"'\n  }\n}'
+
+  printf "$oc\n" > "$oc_file"
 }
 
 # Read space.json and return links as link_name:source pairs
@@ -248,6 +288,7 @@ _space_rename() {
   fi
   rm -f "$new_path/${old_name}.code-workspace"
   _space_write_code_workspace "$new_path" "$new_name"
+  _space_write_opencode_json "$new_path"
 
   printf 'renamed: %s -> %s\n' "$old_name" "$new_name"
 }
@@ -303,11 +344,16 @@ _space_rm() {
   # For each argument, try to match by link name or by source path
   for target in "$@"; do
     local found=false
+    # Also match against the fully resolved form, since space.json stores
+    # resolved absolute paths while the user may pass a devpath/alias.
+    local target_resolved
+    target_resolved="$(readlink -f "$(_dev_path "$target")" 2>/dev/null)"
     local entry
     for entry in $(_space_read_json "$space_path"); do
       local link_name="${entry%%:*}"
       local source="${entry#*:}"
-      if [[ "$link_name" == "$target" || "$source" == "$target" ]]; then
+      if [[ "$link_name" == "$target" || "$source" == "$target" \
+            || ( -n "$target_resolved" && "$source" == "$target_resolved" ) ]]; then
         rm -f "$space_path/$link_name"
         printf '  removed: %s\n' "$link_name"
         found=true
@@ -422,25 +468,44 @@ _space_sync() {
 
   printf 'syncing space: %s\n' "$name"
 
-  # For each source marked as containing sub-repos (type "tree"),
-  # check if new repos appeared. For now, we just re-scan all sources
-  # and report what's missing or extra.
+  rm -f "$space_path/.space_links_tmp" "$space_path/.space_sources_tmp"
+
+  # Re-resolve every source, repair missing/stale symlinks and rewrite
+  # space.json with fully resolved absolute paths.
   local entry
   for entry in $(_space_read_json "$space_path"); do
     local link_name="${entry%%:*}"
     local source="${entry#*:}"
-    local source_path="$(_dev_path "$source")"
+    local source_path
+    source_path="$(readlink -f "$(_dev_path "$source")" 2>/dev/null)"
 
-    if [[ ! -e "$source_path" ]]; then
+    if [[ -z "$source_path" || ! -e "$source_path" ]]; then
       printf '  warning: source gone: %s (%s)\n' "$link_name" "$source" >&2
-    elif [[ ! -L "$space_path/$link_name" ]]; then
-      printf '  warning: link missing, recreating: %s\n' "$link_name"
-      ln -s "$source_path" "$space_path/$link_name"
+      continue
     fi
+
+    if [[ ! -L "$space_path/$link_name" ]]; then
+      printf '  link missing, recreating: %s -> %s\n' "$link_name" "$source_path"
+      rm -rf "$space_path/$link_name"
+      ln -s "$source_path" "$space_path/$link_name"
+    else
+      local current
+      current="$(readlink "$space_path/$link_name")"
+      if [[ "$current" != "$source_path" ]]; then
+        printf '  relinked: %s -> %s\n' "$link_name" "$source_path"
+        rm -f "$space_path/$link_name"
+        ln -s "$source_path" "$space_path/$link_name"
+      fi
+    fi
+
+    printf '%s\n' "$link_name" >> "$space_path/.space_links_tmp"
+    printf '%s\n' "$source_path" >> "$space_path/.space_sources_tmp"
   done
 
-  # Regenerate .code-workspace file
-  _space_write_code_workspace "$space_path" "$name"
+  # Rewrites space.json plus the .code-workspace and opencode.json files
+  local created
+  created="$(_space_get_created "$space_path")"
+  _space_write_json "$space_path" "$name" "$created"
 
   printf 'sync complete\n'
 }
@@ -456,7 +521,8 @@ _space_help() {
   printf '  list                           List all workspaces\n'
   printf '  show <name>                    Show workspace details\n'
   printf '  open <name>                    Open workspace in VS Code\n'
-  printf '  sync <name>                    Sync workspace (fix broken links)\n'
+  printf '  sync <name>                    Sync workspace (re-resolve symlinks, fix broken links,\n'
+  printf '                                 regenerate .code-workspace and opencode.json)\n'
 }
 
 # Completion for space command

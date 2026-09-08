@@ -650,18 +650,8 @@ _git_in_repos() {
   done
 }
 
-# git goto main
-gitmain() {
-  if [[ "$1" == "-r" || "$1" == "--recursive" ]]; then
-    shift
-    _git_in_repos -r gitmain -- "$@"
-    return
-  fi
-  if [[ $# -gt 0 ]]; then
-    _git_in_repos gitmain -- "$@"
-    return
-  fi
-
+# git goto main (single repo, current directory)
+_gitmain_here() {
   current_branch=$(git rev-parse --abbrev-ref HEAD)
   if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
     git fetch origin main:main || return 1
@@ -672,8 +662,25 @@ gitmain() {
   delete-local-refs
 }
 
+# git goto main
+# Always recursive: discovers every git repo under the given paths (or cwd),
+# so it also works in a folder that merely contains repos.
+gitmain() {
+  # -r/--recursive is accepted for compatibility but is the default
+  if [[ "$1" == "-r" || "$1" == "--recursive" ]]; then
+    shift
+  fi
+  _git_in_repos -r _gitmain_here -- "$@"
+}
+
 # git open repo in browser
 gitopen() {
+    if [[ "$1" == "-r" || "$1" == "--recursive" ]]; then
+        shift
+        _git_in_repos -r gitopen -- "$@"
+        return
+    fi
+
     local dirs=("$@")
     [[ ${#dirs[@]} -eq 0 ]] && dirs=(".")
 
@@ -864,10 +871,20 @@ complete -F _git_commit_message_completion gitc
 
 # automatic semver tagging
 gittag() {
+  if [[ "$1" == "-r" || "$1" == "--recursive" ]]; then
+    shift
+    _git_in_repos -r gittag "$@"
+    return
+  fi
+  # Support: gittag minor -- repo1 repo2
+  local _has_sep=false
+  for arg in "$@"; do [[ "$arg" == "--" ]] && { _has_sep=true; break; }; done
+  if $_has_sep; then _git_in_repos gittag "$@"; return; fi
+
   local bump=$1
 
   if [[ -z "$bump" ]]; then
-    echo "Usage: gittag <major|minor|patch>"
+    echo "Usage: gittag [-r|--recursive] <major|minor|patch> [-- repo...]"
     echo "  release vs rc is auto-detected from your branch:"
     echo "  main/master -> release, any other branch -> rc"
     return 1
@@ -966,7 +983,19 @@ complete -F _gittag_complete gittag
 #   gittagc minor             bump app minor version, config resets to 0
 #   gittagc major             bump app major version, config resets to 0
 #   gittagc <x.x.x>           set app version explicitly, config resets to 0
+#   gittagc -r [arg]          run in every git repo found under the current directory
+#   gittagc [arg] -- repo...  run in the given repos
 gittagc() {
+  if [[ "$1" == "-r" || "$1" == "--recursive" ]]; then
+    shift
+    _git_in_repos -r gittagc "$@"
+    return
+  fi
+  # Support: gittagc minor -- repo1 repo2
+  local _has_sep=false
+  for arg in "$@"; do [[ "$arg" == "--" ]] && { _has_sep=true; break; }; done
+  if $_has_sep; then _git_in_repos gittagc "$@"; return; fi
+
   local arg=${1:-config}
 
   git fetch --tags
@@ -1119,8 +1148,31 @@ _reconcilecomponent_completion() {
 complete -F _reconcilecomponent_completion reconcilecomponent
 
 
+# run a repo check in the current repo, or - when the current directory is not
+# a repo itself but contains some - in every repo found underneath it
+_git_check_in_repos() {
+  local func="$1"
+
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    "$func"
+    return
+  fi
+
+  local orig_dir
+  orig_dir="$(pwd)"
+
+  local dir
+  while IFS= read -r -d '' gitdir; do
+    dir="${gitdir%/.git}"
+    echo "==> $dir"
+    cd "$dir" || continue
+    "$func"
+    cd "$orig_dir" || return 1
+  done < <(find -L . -maxdepth 3 -name .git -type d -print0 2>/dev/null)
+}
+
 # check if user is on stale branch
-check_on_stale_branch() {
+_check_on_stale_branch_here() {
   # current branch (empty if detached HEAD)
   local current
   current="$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" || {
@@ -1148,15 +1200,18 @@ check_on_stale_branch() {
         echo "Keeping current branch."
         ;;
       *)
-        gitmain -r
+        gitmain
         ;;
     esac
   fi
 }
+check_on_stale_branch() {
+  _git_check_in_repos _check_on_stale_branch_here
+}
 check_on_stale_branch
 
 # check if user is behind upstream and should pull
-check_behind_upstream() {
+_check_behind_upstream_here() {
   # Must be on a branch (not detached HEAD)
   local branch
   branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" || {
@@ -1189,6 +1244,9 @@ check_behind_upstream() {
     git pull --ff-only >/dev/null
     echo "Branch '$branch' was behind '$upstream' by $behind commit(s). Changes were pulled."
   fi
+}
+check_behind_upstream() {
+  _git_check_in_repos _check_behind_upstream_here
 }
 check_behind_upstream
 
