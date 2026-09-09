@@ -20,6 +20,9 @@ command_not_found_handle() {
 clear() {
     if [ ! -f "/tmp/possible_clear_alias.txt" ] || [ ! -s "/tmp/possible_clear_alias.txt" ] || [ ! $# -eq 1 ]; then
         bash -c clear
+        while IFS= read -r -s -n1 -t 0.3; do
+            :
+        done
         return 1
     fi
 
