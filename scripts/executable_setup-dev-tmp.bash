@@ -2,6 +2,8 @@
 # Creates worktrees in $dev_dir/.tmp/ and opens them in VS Code.
 #
 # Workflow:
+#   dev-tmp                   creates a NEW empty scratch workspace: a plain
+#                             directory with `git init`, not tied to any repo.
 #   dev-tmp <repo>            always creates a NEW scratch worktree (detached HEAD).
 #                             Branch it later with gitb/gitcb if the work turns out
 #                             to be worth keeping.
@@ -15,12 +17,17 @@
 # Branches are always looked up through git's worktree administration instead.
 #
 # Housekeeping:
-#   automatic   worktrees untouched for $DEV_TMP_MAX_AGE_DAYS days that hold no
-#               unpushed work are pruned in the background, no command needed
+#   automatic   worktrees holding no unpushed work are pruned in the background,
+#               no command needed - either because they were untouched for
+#               $DEV_TMP_MAX_AGE_DAYS days, or, early, because their branch's
+#               upstream is gone (merged/deleted MR)
 #   dev-tmp-cleanup   manually removes ALL temporary worktrees
 
 # days after which an untouched, fully pushed worktree is pruned automatically
 : "${DEV_TMP_MAX_AGE_DAYS:=30}"
+
+# directory name prefix used for repo-less scratch workspaces
+: "${DEV_TMP_SCRATCH_NAME:=scratch}"
 
 _dev_tmp_dir() {
   printf '%s\n' "$dev_dir/.tmp"
@@ -70,11 +77,19 @@ _dev_tmp_repo() {
   printf '%s\n' "$source_path"
 }
 
-# the source repo a worktree belongs to
+# the source repo a worktree belongs to.
+# Fails for a standalone repo (a repo-less scratch workspace), which has no
+# source repo of its own.
 _dev_tmp_source_repo() {
-  local common_dir
-  common_dir="$(git -C "$1" rev-parse --git-common-dir 2>/dev/null)" || return 1
-  dirname -- "$common_dir"
+  local common_dir repo
+  common_dir="$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1
+  [[ -n "$common_dir" ]] || return 1
+  repo="$(dirname -- "$common_dir")"
+
+  # a standalone repo is its own "source" - that is not a worktree
+  [[ "$repo" == "$(cd -- "$1" && pwd)" ]] && return 1
+
+  printf '%s\n' "$repo"
 }
 
 # print the path of the worktree that has <branch> checked out, if any.
@@ -129,20 +144,45 @@ dev-tmp() {
   local devpath="$1"
   local branch="$2"
 
-  if [[ -z "$devpath" ]]; then
-    printf 'usage: dev-tmp <devpath> [branch]\n' >&2
-    printf '\nCreates/opens a temporary git worktree in VS Code.\n' >&2
-    printf '  without branch  always creates a new scratch worktree (detached HEAD)\n' >&2
-    printf '  with branch     always opens the same worktree for that branch,\n' >&2
-    printf '                  creating it if needed (local, remote-only or new branch)\n' >&2
+  if [[ "$devpath" == "-h" || "$devpath" == "--help" ]]; then
+    printf 'usage: dev-tmp [devpath [branch]]\n' >&2
+    printf '\nCreates/opens a temporary workspace in VS Code.\n' >&2
+    printf '  without arguments  creates a new empty scratch workspace (git init)\n' >&2
+    printf '  <repo>             always creates a new scratch worktree (detached HEAD)\n' >&2
+    printf '  <repo> <branch>    always opens the same worktree for that branch,\n' >&2
+    printf '                     creating it if needed (local, remote-only or new branch)\n' >&2
     printf '\nsee also: dev-tmp-list, dev-tmp-rm, dev-tmp-cleanup\n' >&2
-    return 1
+    return 0
   fi
 
   local source_path link_name tmp_base tmp_path
+  tmp_base="$(_dev_tmp_dir)"
+
+  # ---- no repo given: plain empty workspace, not tied to any repo -----------
+  if [[ -z "$devpath" ]]; then
+    _dev_tmp_autoprune
+
+    mkdir -p "$tmp_base"
+    tmp_path="$(_dev_tmp_new_path "$tmp_base" "$DEV_TMP_SCRATCH_NAME")"
+
+    mkdir -p "$tmp_path" || {
+      printf 'error: failed to create workspace directory\n' >&2
+      return 1
+    }
+    git -C "$tmp_path" init --quiet || {
+      printf 'error: git init failed\n' >&2
+      return 1
+    }
+
+    printf '\ncreated empty tmp workspace: %s\n' "$tmp_path"
+    printf 'source: (none) - standalone git repo\n'
+    printf '\nopening workspace in VS Code...\n'
+    code "$tmp_path"
+    return 0
+  fi
+
   source_path="$(_dev_tmp_repo "$devpath")" || return 1
   link_name="$(_space_link_name "$devpath")"
-  tmp_base="$(_dev_tmp_dir)"
 
   _dev_tmp_autoprune
 
@@ -265,9 +305,10 @@ dev-tmp-rm() {
   local wt_path="${matches[0]}"
   local wt_name="$(basename -- "$wt_path")"
 
-  # Find source repo by checking git worktree list from the worktree itself
+  # Find source repo by checking git worktree list from the worktree itself.
+  # Empty for a repo-less scratch workspace.
   local source_repo
-  source_repo="$(_dev_tmp_source_repo "$wt_path")"
+  source_repo="$(_dev_tmp_source_repo "$wt_path")" || source_repo=""
 
   # If we're currently in the worktree, cd out first
   if [[ "$(pwd)" == "$wt_path"* ]]; then
@@ -275,18 +316,32 @@ dev-tmp-rm() {
     cd "$dev_dir" || cd "$HOME"
   fi
 
-  git -C "$source_repo" worktree remove "$wt_path" 2>/dev/null
-  if [[ $? -ne 0 ]]; then
+  if [[ -z "$source_repo" ]]; then
+    # standalone scratch workspace: just a directory to delete
+    if _dev_tmp_has_unpushed "$wt_path"; then
+      printf 'workspace holds work that exists nowhere else. remove anyway? [y/N] '
+      local reply
+      IFS= read -r reply
+      case "$reply" in
+        [yY]|[yY][eE][sS]) ;;
+        *) printf 'aborted\n'; return 1 ;;
+      esac
+    fi
+    rm -rf -- "$wt_path" || return 1
+  elif ! git -C "$source_repo" worktree remove "$wt_path" 2>/dev/null; then
     # Force remove if there are changes
     printf 'worktree has uncommitted changes. force remove? [y/N] '
     local reply
-    read -r reply
-    if [[ "$reply" == [yY] ]]; then
-      git -C "$source_repo" worktree remove --force "$wt_path"
-    else
-      printf 'aborted\n'
-      return 1
-    fi
+    IFS= read -r reply
+    case "$reply" in
+      [yY]|[yY][eE][sS])
+        git -C "$source_repo" worktree remove --force "$wt_path" || return 1
+        ;;
+      *)
+        printf 'aborted\n'
+        return 1
+        ;;
+    esac
   fi
 
   printf 'removed: %s\n' "$wt_name"
@@ -374,7 +429,11 @@ _dev_tmp_has_unpushed() {
   [[ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]] && return 0
 
   local head
-  head="$(git -C "$wt" rev-parse --verify HEAD 2>/dev/null)" || return 0
+  head="$(git -C "$wt" rev-parse --verify HEAD 2>/dev/null)" || {
+    # no commits at all and a clean working tree (checked above): an untouched
+    # empty scratch workspace, there is nothing to lose
+    return 1
+  }
 
   # commits that no remote branch contains yet
   [[ -z "$(git -C "$wt" branch -r --contains "$head" 2>/dev/null)" ]] && return 0
@@ -400,8 +459,37 @@ _dev_tmp_remove() {
 # automatic pruning of stale worktrees
 # ---------------------------------------------------------------------------
 
-# Removes worktrees untouched for $DEV_TMP_MAX_AGE_DAYS days that hold no
-# unpushed work. Never touches the worktree the shell is currently in.
+# true if the worktree has a branch checked out whose upstream was deleted.
+# Only a genuinely gone upstream (track:[gone]) counts - a branch that never
+# had an upstream is simply new work, not a leftover.
+# Relies on the remote refs having been pruned first (_dev_tmp_fetch_once).
+_dev_tmp_branch_is_stale() {
+  local wt="$1" branch track
+  branch="$(git -C "$wt" symbolic-ref --quiet --short HEAD 2>/dev/null)" || return 1
+  [[ -n "$branch" ]] || return 1
+  case "$branch" in main|master) return 1 ;; esac
+
+  track="$(git -C "$wt" for-each-ref --format='%(upstream:track)' "refs/heads/$branch" 2>/dev/null)"
+  [[ "$track" == *"[gone]"* ]]
+}
+
+# `git fetch --prune` a repo at most once per prune run, so that [gone] and the
+# "is this commit on a remote" check see current remote refs
+_dev_tmp_fetch_once() {
+  local repo="$1"
+  [[ -n "$repo" ]] || return 0
+  [[ "$_dev_tmp_fetched" == *"|$repo|"* ]] && return 0
+  _dev_tmp_fetched+="|$repo|"
+
+  GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="ssh -oBatchMode=yes" \
+    git -C "$repo" fetch --prune --quiet 2>/dev/null
+  return 0
+}
+
+# Removes worktrees that hold no unpushed work and either
+#   - have been untouched for $DEV_TMP_MAX_AGE_DAYS days, or
+#   - sit on a branch whose upstream is gone (merged/deleted MR), regardless of age
+# Never touches the worktree the shell is currently in.
 # This runs on its own (see _dev_tmp_autoprune) - there is no command for it.
 _dev_tmp_prune_stale() {
   local tmp_base days now cutoff removed=0
@@ -410,11 +498,13 @@ _dev_tmp_prune_stale() {
 
   days="$DEV_TMP_MAX_AGE_DAYS"
   [[ "$days" =~ ^[0-9]+$ ]] || return 0
-  (( days == 0 )) && return 0
 
   now="$(date +%s)"
   cutoff=$(( now - days * 86400 ))
+  # days == 0 disables the age based prune, the stale branch prune stays on
+  (( days == 0 )) && cutoff=0
 
+  local _dev_tmp_fetched=""
   local d
   for d in "$tmp_base"/*/; do
     [[ -d "$d" ]] || continue
@@ -423,18 +513,27 @@ _dev_tmp_prune_stale() {
     # never touch the worktree we are currently sitting in
     [[ "$(pwd)" == "$d"* ]] && continue
 
-    local last
-    last="$(_dev_tmp_last_activity "$d")"
-    [[ -z "$last" || "$last" -eq 0 || "$last" -gt "$cutoff" ]] && continue
+    local source_repo
+    source_repo="$(_dev_tmp_source_repo "$d")" || source_repo=""
+    _dev_tmp_fetch_once "$source_repo"
 
-    # anything not safely on a remote stays, however old it is
+    local reason="" last
+    if _dev_tmp_branch_is_stale "$d"; then
+      reason="branch upstream gone"
+    else
+      last="$(_dev_tmp_last_activity "$d")"
+      (( cutoff == 0 )) && continue
+      [[ -z "$last" || "$last" -eq 0 || "$last" -gt "$cutoff" ]] && continue
+      reason="$(_dev_tmp_age_days "$d")d untouched"
+    fi
+
+    # anything not safely on a remote stays, whatever its age or branch state
     _dev_tmp_has_unpushed "$d" && continue
 
-    local name age
+    local name
     name="$(basename -- "$d")"
-    age="$(_dev_tmp_age_days "$d")"
     if _dev_tmp_remove "$d"; then
-      printf 'dev-tmp: pruned stale worktree %s (%sd untouched, fully pushed)\n' "$name" "$age"
+      printf 'dev-tmp: pruned worktree %s (%s, fully pushed)\n' "$name" "$reason"
       ((removed++))
     fi
   done

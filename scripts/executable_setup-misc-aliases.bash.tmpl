@@ -302,6 +302,10 @@ _dev_path() {
       resolved="$dev_dir/space"
     elif [[ "$p" == space/* ]]; then
       resolved="$dev_dir/${p}"
+    elif [[ -e "$dev_dir/space/$p" ]]; then
+      # bare names resolve to a space first, so `code my-space` is the same as
+      # `code space/my-space` even when $main_dir holds a directory of that name
+      resolved="$dev_dir/space/$p"
     else
       resolved="$main_dir/$p"
     fi
@@ -383,6 +387,8 @@ _dev_path_completion() {
       _dev_path_completion_under "$main_dir" "$main_dir_name" "${cur#"$main_dir_name"/}"
       ;;
     *)
+      # spaces first, they win over same-named entries in $main_dir
+      _dev_path_completion_under "$dev_dir/space" "" "$cur"
       _dev_path_completion_under "$main_dir" "" "$cur"
       ;;
   esac
@@ -462,9 +468,177 @@ chezmoi() {
   esac
 }
 
-# glab clone group alias
-alias dev-reclone="cd $dev_dir && glab repo clone --group "$gitlab_group" --preserve-namespace --paginate .; cd -"
+# clone the whole gitlab group tree into a directory
+_dev_clone_group_into() {
+  local target="$1"
+  mkdir -p "$target" || return 1
+  ( cd "$target" && glab repo clone --group "$gitlab_group" --preserve-namespace --paginate . )
+}
+
+# glab clone group into $dev_dir, then prune repos whose origin is gone
+dev-reclone() {
+  _dev_clone_group_into "$dev_dir" || return $?
+  dev-clone-clean "$dev_dir"
+}
 alias dev-clone="dev-reclone"
+
+# default location for the throwaway clone tree (e.g. ~/dev/ssp -> ~/dev/ssp-tmp)
+export dev_tmp_dir="${dev_dir}-tmp"
+
+# clone the whole gitlab group into a separate, temporary tree
+# Usage: dev-clone-tmp [target_dir]   (default: $dev_tmp_dir)
+dev-clone-tmp() {
+  local target="${1:-$dev_tmp_dir}"
+  target="${target/#\~/$HOME}"
+
+  _dev_clone_group_into "$target" || return $?
+
+  echo
+  echo "Temporary clone tree ready: $target"
+  echo "Remove it again with: dev-clone-tmp-rm ${target}"
+}
+
+# remove a temporary clone tree created by dev-clone-tmp
+# Usage: dev-clone-tmp-rm [target_dir]   (default: $dev_tmp_dir)
+dev-clone-tmp-rm() {
+  local target="${1:-$dev_tmp_dir}"
+  target="${target/#\~/$HOME}"
+
+  if [[ "$target" == "$dev_dir" || "$target" == "$main_dir" || "$target" == "$HOME" || "$target" == "/" ]]; then
+    echo "dev-clone-tmp-rm: refusing to remove '$target'" >&2
+    return 1
+  fi
+  if [[ ! -d "$target" ]]; then
+    echo "dev-clone-tmp-rm: no such directory: $target"
+    return 0
+  fi
+
+  printf "Remove temporary clone tree '%s'? [y/N] " "$target"
+  local reply
+  IFS= read -r reply
+  case "$reply" in
+    [yY]|[yY][eE][sS])
+      rm -rf -- "$target" && echo "Removed $target"
+      ;;
+    *)
+      echo "Aborted."
+      ;;
+  esac
+}
+
+# check whether a repo's origin remote still exists
+#   0 = gone, 1 = still exists, 2 = unknown (no origin configured)
+_dev_repo_origin_gone() {
+  local dir="$1" url
+  url="$(git -C "$dir" remote get-url origin 2>/dev/null)" || return 2
+  [[ -n "$url" ]] || return 2
+
+  if GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="ssh -oBatchMode=yes" \
+    git ls-remote --heads "$url" >/dev/null 2>&1; then
+    return 1
+  fi
+  return 0
+}
+
+# find cloned repos whose origin no longer exists and delete them (with confirmation)
+# Usage: dev-clone-clean [root_dir]   (default: $dev_dir)
+dev-clone-clean() {
+  local root="${1:-$dev_dir}"
+  root="${root/#\~/$HOME}"
+
+  if [[ ! -d "$root" ]]; then
+    echo "dev-clone-clean: no such directory: $root" >&2
+    return 1
+  fi
+
+  local -a repos=()
+  local gitdir
+  while IFS= read -r -d '' gitdir; do
+    repos+=("${gitdir%/.git}")
+  done < <(find -H "$root" -name .git -type d -prune -print0 2>/dev/null)
+
+  if ((${#repos[@]} == 0)); then
+    echo "dev-clone-clean: no git repos found under $root"
+    return 0
+  fi
+
+  echo "dev-clone-clean: checking ${#repos[@]} repos under $root ..."
+
+  local tmp
+  tmp="$(mktemp -d)" || return 1
+
+  # check remotes in parallel
+  local max_jobs=8 i
+  for i in "${!repos[@]}"; do
+    {
+      _dev_repo_origin_gone "${repos[$i]}"
+      printf '%s' "$?" > "$tmp/$i"
+    } &
+    while (($(jobs -rp | wc -l) >= max_jobs)); do wait -n; done
+  done
+  wait
+
+  local -a gone=() unknown=()
+  local alive=0 status
+  for i in "${!repos[@]}"; do
+    status="$(cat "$tmp/$i" 2>/dev/null)"
+    case "$status" in
+      0) gone+=("${repos[$i]}") ;;
+      1) ((alive++)) ;;
+      *) unknown+=("${repos[$i]}") ;;
+    esac
+  done
+  rm -rf -- "$tmp"
+
+  if ((${#unknown[@]} > 0)); then
+    echo
+    echo "Skipped (no origin remote configured):"
+    printf '  %s\n' "${unknown[@]#"$root"/}"
+  fi
+
+  if ((${#gone[@]} == 0)); then
+    echo "dev-clone-clean: nothing to clean, all origins still exist."
+    return 0
+  fi
+
+  # safety net: if not a single remote was reachable this is likely a network
+  # or auth problem rather than deleted repos
+  if ((alive == 0)); then
+    echo "dev-clone-clean: could not reach ANY origin remote - assuming a network/auth" >&2
+    echo "problem instead of deleted repos. Aborting without changes." >&2
+    return 1
+  fi
+
+  echo
+  echo "Repos whose origin remote is gone:"
+  local repo dirty
+  for repo in "${gone[@]}"; do
+    dirty=""
+    if [[ -n "$(git -C "$repo" status --porcelain 2>/dev/null)" ]]; then
+      dirty="  [UNCOMMITTED CHANGES]"
+    fi
+    printf '  %s%s\n' "${repo#"$root"/}" "$dirty"
+  done
+
+  echo
+  printf "Delete these %s repo(s)? [y/N] " "${#gone[@]}"
+  local reply
+  IFS= read -r reply
+  case "$reply" in
+    [yY]|[yY][eE][sS]) ;;
+    *)
+      echo "Aborted, nothing deleted."
+      return 0
+      ;;
+  esac
+
+  for repo in "${gone[@]}"; do
+    rm -rf -- "$repo" && echo "Deleted ${repo#"$root"/}"
+  done
+
+  # clean up namespace directories left empty behind
+  find "$root" -mindepth 1 -type d -empty -delete 2>/dev/null
+}
 
 # create repo alias in $dev_dir
 dev-alias() {
@@ -638,7 +812,8 @@ _git_in_repos() {
   fi
 
   for dir in "${repo_dirs[@]}"; do
-    if [[ ! -d "$dir/.git" ]]; then
+    # .git is a file, not a directory, in a linked worktree
+    if ! git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
       echo "Error: '$dir' is not a git repository." >&2
       continue
     fi
@@ -650,16 +825,57 @@ _git_in_repos() {
   done
 }
 
+# the repo's default branch on origin (whatever origin/HEAD points at, else
+# main or master, else main)
+_git_default_branch() {
+  local ref
+  if ref="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)"; then
+    printf '%s\n' "${ref#origin/}"
+    return 0
+  fi
+  for ref in main master; do
+    if git show-ref --verify --quiet "refs/remotes/origin/$ref"; then
+      printf '%s\n' "$ref"
+      return 0
+    fi
+  done
+  printf 'main\n'
+}
+
+# true when the current directory sits in a linked worktree, not the main one
+_git_in_linked_worktree() {
+  local git_dir common_dir
+  git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null)" || return 1
+  common_dir="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1
+  [[ "$git_dir" != "$common_dir" ]]
+}
+
 # git goto main (single repo, current directory)
 _gitmain_here() {
   _git_require_repo gitmain || return 1
-  current_branch=$(git rev-parse --abbrev-ref HEAD)
-  if [[ "$current_branch" != "main" && "$current_branch" != "master" ]]; then
-    git fetch origin main:main || return 1
-    git checkout main || return 1
+
+  local default_branch
+  default_branch="$(_git_default_branch)"
+
+  if _git_in_linked_worktree; then
+    # in a linked worktree the default branch is checked out in the main
+    # worktree, so it can neither be fetched into nor checked out here.
+    # Detach at origin's commit instead - that also frees the branch this
+    # worktree held, so delete-local-refs below can clean it up.
+    echo "$(_git_check_scope)linked worktree - detaching at origin/$default_branch"
+    git fetch origin "$default_branch" || return 1
+    git checkout --detach FETCH_HEAD || return 1
   else
-    git pull origin main || return 1
+    local current_branch
+    current_branch=$(git rev-parse --abbrev-ref HEAD)
+    if [[ "$current_branch" != "$default_branch" ]]; then
+      git fetch origin "$default_branch:$default_branch" || return 1
+      git checkout "$default_branch" || return 1
+    else
+      git pull origin "$default_branch" || return 1
+    fi
   fi
+
   delete-local-refs
 }
 
@@ -693,8 +909,8 @@ gitopen() {
     for dir in "${dirs[@]}"; do
         dir="$(_dev_path "$dir")"
 
-        # Verify it's a git repository
-        if [[ ! -d "$dir/.git" ]]; then
+        # Verify it's a git repository (.git is a file in a linked worktree)
+        if ! git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
             echo "Error: '$dir' is not a git repository." >&2
             continue
         fi
@@ -1267,18 +1483,8 @@ _check_on_stale_branch_here() {
     | awk '$2 == "track:[gone]" || $3 == "upstream:" {sub("refs/heads/", "", $1); print $1}')"
 
   if printf '%s\n' "$stale" | grep -Fxq -- "$current"; then
-    echo "$(_git_check_scope)Current branch '$current' is stale (upstream gone or not set)."
-    printf "Checkout main now? [Y/n] "
-    local reply
-    IFS= read -r reply
-    case "$reply" in
-      [nN]|[nN][oO])
-        echo "Keeping current branch."
-        ;;
-      *)
-        gitmain
-        ;;
-    esac
+    echo "$(_git_check_scope)Current branch '$current' is stale (upstream gone or not set), checking out main."
+    gitmain
   fi
 }
 check_on_stale_branch() {
