@@ -2,6 +2,23 @@
 {{- if and (hasKey . "ai") (hasKey .ai "mcps") -}}
   {{- $mcps = .ai.mcps -}}
 {{- end -}}
+{{- /* Global references: resolve "~" to the home dir */ -}}
+{{- $references := list -}}
+{{- if and (hasKey . "ai") (hasKey .ai "references") -}}
+  {{- range .ai.references -}}
+    {{- if and (ne .name "") (ne .path "") -}}
+      {{- $path := .path -}}
+      {{- if hasPrefix "~" $path -}}
+        {{- $path = printf "%s%s" $.chezmoi.homeDir (trimPrefix "~" $path) -}}
+      {{- end -}}
+      {{- $description := "" -}}
+      {{- if hasKey . "description" -}}
+        {{- $description = .description -}}
+      {{- end -}}
+      {{- $references = append $references (dict "name" .name "path" $path "description" $description) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
 {
   "$schema": "https://opencode.ai/config.json",
   "permission": {
@@ -9,6 +26,15 @@
       "/tmp/*": "allow"
     }
   },
+{{- if $references }}
+  "references": {
+{{- $sep := "" -}}
+{{- range $references }}{{ $sep }}
+    {{ .name | quote }}: { "path": {{ .path | quote }}{{ if ne .description "" }}, "description": {{ .description | quote }}{{ end }} }
+{{- $sep = "," -}}
+{{- end }}
+  },
+{{- end }}
 {{- if and (hasKey . "ai") (hasKey .ai "providers") (hasKey .ai.providers "aws") (ne .ai.providers.aws.profile "") }}
   "provider": {
     "amazon-bedrock": {

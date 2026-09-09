@@ -142,17 +142,14 @@ _space_write_code_workspace() {
   printf "$ws\n" > "$ws_file"
 }
 
-# Generate an opencode.json declaring every link target as a named reference.
-# opencode expands each reference path into an external_directory allow rule,
-# so the space keeps access to the real directories even after symlink
-# resolution.
+# Generate an opencode.json declaring every link target as a named reference,
+# plus an explicit external_directory allow for each of them.
 _space_write_opencode_json() {
   local space_path="$1"
   local oc_file="$space_path/opencode.json"
 
-  local oc='{\n  "$schema": "https://opencode.ai/config.json",\n  "references": {'
+  local -a names=() targets=()
 
-  local first=true
   local entry
   for entry in $(_space_read_json "$space_path"); do
     local link_name="${entry%%:*}"
@@ -163,12 +160,33 @@ _space_write_opencode_json() {
     [[ -z "$resolved" ]] && resolved="$(readlink -f "$source" 2>/dev/null)"
     [[ -z "$resolved" || ! -d "$resolved" ]] && continue
 
+    names+=("$link_name")
+    targets+=("$resolved")
+  done
+
+  local oc='{\n  "$schema": "https://opencode.ai/config.json",\n  "permission": {\n    "external_directory": {'
+
+  local first=true
+  local i
+  for i in "${!targets[@]}"; do
     if [[ "$first" == true ]]; then
       first=false
     else
       oc="$oc,"
     fi
-    oc="$oc"'\n    "'"$link_name"'": { "path": "'"$resolved"'" }'
+    oc="$oc"'\n      "'"${targets[$i]}"'/*": "allow"'
+  done
+
+  oc="$oc"'\n    }\n  },\n  "references": {'
+
+  first=true
+  for i in "${!names[@]}"; do
+    if [[ "$first" == true ]]; then
+      first=false
+    else
+      oc="$oc,"
+    fi
+    oc="$oc"'\n    "'"${names[$i]}"'": { "path": "'"${targets[$i]}"'" }'
   done
 
   oc="$oc"'\n  }\n}'

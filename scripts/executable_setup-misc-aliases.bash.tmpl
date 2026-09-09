@@ -673,6 +673,8 @@ gitmain() {
   fi
   _git_in_repos -r _gitmain_here -- "$@"
 }
+# gitmain takes repo paths directly (no "--" separator)
+complete -F _dev_path_completion gitmain
 
 # git open repo in browser
 gitopen() {
@@ -754,15 +756,35 @@ _git_branch_helper() {
   echo "$*" | sed -E 's/^([a-z]+):[[:space:]]*(.*)$/\1\/\2/' | tr ' ' '-' | tr '[:upper:]' '[:lower:]'
 }
 
+# completion helper for the "-- <repo>..." repo separator
+# Completes dev paths (folders) once the cursor sits behind a "--".
+# Returns 0 when it handled the completion, 1 when the cursor is still before "--".
+_git_repo_sep_completion() {
+  local i
+  for (( i = 1; i < COMP_CWORD; i++ )); do
+    if [[ "${COMP_WORDS[i]}" == "--" ]]; then
+      _dev_path_completion
+      return 0
+    fi
+  done
+  return 1
+}
+
 # git commit message completer
 _git_commit_message_completion() {
   COMP_WORDBREAKS=${COMP_WORDBREAKS//:}
   # declare -p COMP_CWORD COMP_WORDS # DEBUG
 
+  COMPREPLY=()
+  _git_repo_sep_completion && return 0
+
   [[ $COMP_CWORD -eq 1 ]] &&
     COMPREPLY=( $(compgen -W "feat: chore: revert: fix: refactor: test: docs: style: perf:" -- "${COMP_WORDS[1]}") )
   [[ $COMP_CWORD -eq 2 ]] &&
     COMPREPLY=( $(compgen -W "add adjust rm remove include bump sw switch fix" -- "${COMP_WORDS[2]}") )
+  # offer the repo separator once a message has been started
+  [[ $COMP_CWORD -ge 2 ]] &&
+    COMPREPLY+=( $(compgen -W "--" -- "${COMP_WORDS[COMP_CWORD]}") )
 }
 
 # git branch and commit
@@ -985,11 +1007,16 @@ _gittag_complete() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
 
+  _git_repo_sep_completion && return 0
+
   # only argument: the version bump (release vs rc comes from the branch)
   if [[ $COMP_CWORD -eq 1 ]]; then
     COMPREPLY=( $(compgen -W "major minor patch" -- "$cur") )
     return 0
   fi
+
+  COMPREPLY=( $(compgen -W "--" -- "$cur") )
+  return 0
 }
 complete -F _gittag_complete gittag
 
@@ -1139,6 +1166,22 @@ gittagc() {
   git push origin "$new_tag"
   echo "Created tag: $new_tag"
 }
+_gittagc_complete() {
+  local cur
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+
+  _git_repo_sep_completion && return 0
+
+  if [[ $COMP_CWORD -eq 1 ]]; then
+    COMPREPLY=( $(compgen -W "config major minor patch" -- "$cur") )
+    return 0
+  fi
+
+  COMPREPLY=( $(compgen -W "--" -- "$cur") )
+  return 0
+}
+complete -F _gittagc_complete gittagc
 
 # flux reconcile ssp component
 reconcilecomponent() {

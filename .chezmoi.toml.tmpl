@@ -92,6 +92,19 @@
 {{- end -}}
 {{- end -}}
 
+{{- $aiReferences := list -}}
+{{- if and (hasKey . "ai") (hasKey .ai "references") -}}
+  {{- $aiReferences = .ai.references -}}
+{{- else -}}
+{{- range $i, $e := (until (promptInt "Number of global opencode references" | int)) -}}
+  {{- $aiReferences = append $aiReferences (dict
+    "name" (promptString (printf "Reference name %d" $i))
+    "path" (promptString (printf "Reference path %d" $i))
+    "description" (promptString (printf "Reference description %d [none]" $i))
+  ) -}}
+{{- end -}}
+{{- end -}}
+
 {{- $ai_aws_bedrock_profile := promptStringOnce . "ai.providers.aws.profile" "AI AWS Bedrock Profile [none]" -}}
 {{- $ai_aws_bedrock_region := "" -}}
 {{- if ne $ai_aws_bedrock_profile "" -}}
@@ -225,6 +238,12 @@
     type = {{ .type | quote }}
     url = {{ .url | quote }}
     enabled = {{ if hasKey . "enabled" }}{{ .enabled }}{{ else }}true{{ end }}
+{{- end }}
+{{- range $aiReferences }}
+[[data.ai.references]]
+    name = {{ .name | quote }}
+    path = {{ .path | quote }}
+    description = {{ if hasKey . "description" }}{{ .description | quote }}{{ else }}""{{ end }}
 {{- end }}
 [data.ai.providers.aws]
     profile = {{ $ai_aws_bedrock_profile | quote }}
