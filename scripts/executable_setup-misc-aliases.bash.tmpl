@@ -1483,6 +1483,10 @@ _check_on_stale_branch_here() {
     | awk '$2 == "track:[gone]" || $3 == "upstream:" {sub("refs/heads/", "", $1); print $1}')"
 
   if printf '%s\n' "$stale" | grep -Fxq -- "$current"; then
+    if [ -n "$(git status --porcelain)" ]; then
+      echo "$(_git_check_scope)Current branch '$current' is stale (upstream gone or not set), but the working tree is dirty - run 'gitmain' yourself."
+      return 0
+    fi
     echo "$(_git_check_scope)Current branch '$current' is stale (upstream gone or not set), checking out main."
     gitmain
   fi

@@ -44,6 +44,15 @@ _delete_branch_worktrees() {
                 rc=1
                 continue
             fi
+        elif [[ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]]; then
+            echo "${color_red}Worktree '$wt' has uncommitted changes:${color_reset}"
+            git -C "$wt" status --short
+            read -p "${color_red}Delete it anyway? These changes cannot be recovered.${color_reset} (y/N) " confirm
+            if [[ "$confirm" != [yY] ]]; then
+                echo "Skipped worktree '$wt'."
+                rc=1
+                continue
+            fi
         fi
 
         if git worktree remove --force "$wt"; then
