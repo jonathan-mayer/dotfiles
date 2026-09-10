@@ -475,15 +475,19 @@ _dev_clone_group_into() {
   ( cd "$target" && glab repo clone --group "$gitlab_group" --preserve-namespace --paginate . )
 }
 
+# where glab actually puts the group tree (e.g. ~/dev -> ~/dev/ssp)
+export dev_group_dir="${dev_dir}/${gitlab_group}"
+
 # glab clone group into $dev_dir, then prune repos whose origin is gone
 dev-reclone() {
   _dev_clone_group_into "$dev_dir" || return $?
-  dev-clone-clean "$dev_dir"
+  dev-clone-clean "$dev_group_dir"
 }
 alias dev-clone="dev-reclone"
 
-# default location for the throwaway clone tree (e.g. ~/dev/ssp -> ~/dev/ssp-tmp)
-export dev_tmp_dir="${dev_dir}-tmp"
+# default location for the throwaway clone tree
+# it sits next to the main group tree: e.g. ~/dev/ssp -> ~/dev/ssp-tmp
+export dev_tmp_dir="${dev_group_dir}-tmp"
 
 # clone the whole gitlab group into a separate, temporary tree
 # Usage: dev-clone-tmp [target_dir]   (default: $dev_tmp_dir)
@@ -491,7 +495,30 @@ dev-clone-tmp() {
   local target="${1:-$dev_tmp_dir}"
   target="${target/#\~/$HOME}"
 
-  _dev_clone_group_into "$target" || return $?
+  if [[ "$target" == "$dev_group_dir" ]]; then
+    echo "dev-clone-tmp: refusing to overwrite the main clone tree '$target'" >&2
+    return 1
+  fi
+
+  # glab always creates <staging>/<gitlab_group>, so clone into a staging dir
+  # and move the group directory to the requested target afterwards
+  local staging
+  staging="$(mktemp -d "${TMPDIR:-/tmp}/dev-clone-tmp.XXXXXX")" || return 1
+
+  if ! _dev_clone_group_into "$staging"; then
+    local rc=$?
+    rm -rf -- "$staging"
+    return $rc
+  fi
+
+  mkdir -p "$(dirname -- "$target")" || { rm -rf -- "$staging"; return 1; }
+  if [[ -d "$target" ]]; then
+    # merge into an existing tree
+    cp -a -- "$staging/$gitlab_group/." "$target/" || { rm -rf -- "$staging"; return 1; }
+  else
+    mv -- "$staging/$gitlab_group" "$target" || { rm -rf -- "$staging"; return 1; }
+  fi
+  rm -rf -- "$staging"
 
   echo
   echo "Temporary clone tree ready: $target"
@@ -504,7 +531,8 @@ dev-clone-tmp-rm() {
   local target="${1:-$dev_tmp_dir}"
   target="${target/#\~/$HOME}"
 
-  if [[ "$target" == "$dev_dir" || "$target" == "$main_dir" || "$target" == "$HOME" || "$target" == "/" ]]; then
+  if [[ "$target" == "$dev_dir" || "$target" == "$main_dir" || "$target" == "$HOME" || "$target" == "/" ||
+    "$target" == "$dev_group_dir" ]]; then
     echo "dev-clone-tmp-rm: refusing to remove '$target'" >&2
     return 1
   fi
@@ -541,9 +569,9 @@ _dev_repo_origin_gone() {
 }
 
 # find cloned repos whose origin no longer exists and delete them (with confirmation)
-# Usage: dev-clone-clean [root_dir]   (default: $dev_dir)
+# Usage: dev-clone-clean [root_dir]   (default: $dev_group_dir)
 dev-clone-clean() {
-  local root="${1:-$dev_dir}"
+  local root="${1:-$dev_group_dir}"
   root="${root/#\~/$HOME}"
 
   if [[ ! -d "$root" ]]; then
