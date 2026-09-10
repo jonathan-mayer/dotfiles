@@ -174,7 +174,7 @@ _space_write_opencode_json() {
     else
       oc="$oc,"
     fi
-    oc="$oc"'\n      "'"${targets[$i]}"'/*": "allow"'
+    oc="$oc"'\n      "'"${targets[$i]}"'/**": "allow"'
   done
 
   oc="$oc"'\n    }\n  },\n  "references": {'
