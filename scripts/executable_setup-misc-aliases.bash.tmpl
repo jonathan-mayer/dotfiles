@@ -302,6 +302,8 @@ _dev_path() {
       resolved="$dev_dir/space"
     elif [[ "$p" == space/* ]]; then
       resolved="$dev_dir/${p}"
+    elif [[ -e "$PWD/$p" ]]; then
+      resolved="$PWD/$p"
     elif [[ -e "$dev_dir/space/$p" ]]; then
       # bare names resolve to a space first, so `code my-space` is the same as
       # `code space/my-space` even when $main_dir holds a directory of that name
