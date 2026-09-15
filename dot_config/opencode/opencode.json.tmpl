@@ -1,40 +1,28 @@
-{{- $mcps := list -}}
-{{- if and (hasKey . "ai") (hasKey .ai "mcps") -}}
-  {{- $mcps = .ai.mcps -}}
+{{- $mcps := .ai.mcps | default list -}}
+{{- /* References and read permissions */ -}}
+{{- $refs := dict -}}
+{{- $read := dict -}}
+{{- $edit := dict "**/.env.dist" "allow" "**/.env.example" "allow" -}}
+{{- range (.ai.references | default list) -}}
+  {{- $_ := set $refs .name (dict "path" .path "description" (.description | default "")) -}}
+  {{- $_ := set $read (printf "%s/**" .path) "allow" -}}
 {{- end -}}
-{{- /* Global references: resolve "~" to the home dir */ -}}
-{{- $references := list -}}
-{{- if and (hasKey . "ai") (hasKey .ai "references") -}}
-  {{- range .ai.references -}}
-    {{- if and (ne .name "") (ne .path "") -}}
-      {{- $path := .path -}}
-      {{- if hasPrefix "~" $path -}}
-        {{- $path = printf "%s%s" $.chezmoi.homeDir (trimPrefix "~" $path) -}}
-      {{- end -}}
-      {{- $description := "" -}}
-      {{- if hasKey . "description" -}}
-        {{- $description = .description -}}
-      {{- end -}}
-      {{- $references = append $references (dict "name" .name "path" $path "description" $description) -}}
-    {{- end -}}
+{{- range (list (.dev.dev_path | default "") (.dev.main_path | default "")) -}}
+  {{- if ne . "" -}}
+    {{- $_ := set $read (printf "%s/**" .) "allow" -}}
   {{- end -}}
+{{- end -}}
+{{- range $glob, $action := $edit -}}
+  {{- $_ := set $read $glob $action -}}
 {{- end -}}
 {
   "$schema": "https://opencode.ai/config.json",
   "permission": {
-    "external_directory": {
-      "/tmp/**": "allow"
-    }
+    "external_directory": { "/tmp/**": "allow" },
+    "edit": {{ $edit | toPrettyJson | indent 4 | trim }},
+    "read": {{ $read | toPrettyJson | indent 4 | trim }}
   },
-{{- if $references }}
-  "references": {
-{{- $sep := "" -}}
-{{- range $references }}{{ $sep }}
-    {{ .name | quote }}: { "path": {{ .path | quote }}{{ if ne .description "" }}, "description": {{ .description | quote }}{{ end }} }
-{{- $sep = "," -}}
-{{- end }}
-  },
-{{- end }}
+  "references": {{ $refs | toPrettyJson | indent 2 | trim }},
 {{- if and (hasKey . "ai") (hasKey .ai "providers") (hasKey .ai.providers "aws") (ne .ai.providers.aws.profile "") }}
   "provider": {
     "amazon-bedrock": {
