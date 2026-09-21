@@ -20,7 +20,11 @@
   "permission": {
     "external_directory": { "/tmp/**": "allow" },
     "edit": {{ $edit | toPrettyJson | indent 4 | trim }},
-    "read": {{ $read | toPrettyJson | indent 4 | trim }}
+    "read": {{ $read | toPrettyJson | indent 4 | trim }},
+    "grep": {{ $read | toPrettyJson | indent 4 | trim }},
+    "glob": {{ $read | toPrettyJson | indent 4 | trim }},
+    "websearch": "allow",
+    "webfetch": "allow"
   },
   "references": {{ $refs | toPrettyJson | indent 2 | trim }},
 {{- if and (hasKey . "ai") (hasKey .ai "providers") (hasKey .ai.providers "aws") (ne .ai.providers.aws.profile "") }}
@@ -62,5 +66,8 @@
     }
 {{- $sep = "," -}}
 {{- end }}
-  }
+  },
+  "websearch": {
+    "provider": "random",
+  },
 }
