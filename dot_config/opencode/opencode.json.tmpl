@@ -1,9 +1,9 @@
-{{- $mcps := .ai.mcps | default list -}}
+{{- $mcps := index .ai "mcps" | default list -}}
 {{- /* References and read permissions */ -}}
 {{- $refs := dict -}}
 {{- $read := dict -}}
 {{- $edit := dict "**/.env.dist" "allow" "**/.env.example" "allow" -}}
-{{- range (.ai.references | default list) -}}
+{{- range (index .ai "references" | default list) -}}
   {{- $_ := set $refs .name (dict "path" .path "description" (.description | default "")) -}}
   {{- $_ := set $read (printf "%s/**" .path) "allow" -}}
 {{- end -}}
