@@ -31,6 +31,8 @@ if ! shopt -oq posix; then
     fi
 fi
 
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
 # Setup Custom Behaviour Scripts
 for file in ~/scripts/setup-*.bash; do
   . "$file"
@@ -44,8 +46,6 @@ done
 if [ -f $HOME/.cargo ]; then
     . "$HOME/.cargo/env"
 fi
-
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 source <(kubectl completion bash)
 complete -o default -F __start_kubectl k # enable bash completion for the 'k' alias
