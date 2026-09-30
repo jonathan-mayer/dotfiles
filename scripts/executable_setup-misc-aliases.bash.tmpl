@@ -12,7 +12,7 @@ update() {
   echo ""
 
 {{- if eq .chezmoi.osRelease.id "arch" }}
-  sudo pacman -Syu --noconfirm && yay -Syu --rebuildall --noconfirm && brew upgrade -y && flatpak update -y
+  sudo pacman -Syu --noconfirm && yay -Syu --noconfirm && brew upgrade -y && flatpak update -y
 {{- else if eq .chezmoi.osRelease.id "fedora" }}
   sudo dnf upgrade --refresh -y && brew upgrade -y && flatpak update -y
 {{- else }}
