@@ -100,6 +100,7 @@ All files matching `~/scripts/setup-*.bash` when rendered will be sourced by the
 **If it fits an existing category**, add it to the relevant file in `scripts/`:
 
 - `scripts/executable_setup-misc-aliases.bash.tmpl` - General aliases, git helpers, dev-\* commands
+- `scripts/executable_setup-dev-export.bash` - `dev-export` / `dev-import` (move a dev dir setup to another machine)
 - `scripts/executable_setup-disk-aliases.bash` - Disk/mount aliases
 - `scripts/executable_setup-auto-clear-aliases.bash` - Auto-clearing aliases
 - `scripts/executable_setup-configure-bash.bash` - Shell options and env vars
