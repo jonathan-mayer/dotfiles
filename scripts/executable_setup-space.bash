@@ -137,7 +137,7 @@ _space_write_code_workspace() {
     ws="$ws"'\n    { "path": "'"$link_name"'" }'
   done
 
-  ws="$ws"'\n  ],\n  "settings": {\n    "terminal.integrated.cwd": "'"$space_path"'"\n  }\n}'
+  ws="$ws"'\n  ],\n  "settings": {\n    "terminal.integrated.cwd": "'"$space_path"'",\n    "files.exclude": {\n      "**/*.code-workspace": true,\n      "**/gitlab-profile": true\n    }\n  }\n}'
 
   printf "$ws\n" > "$ws_file"
 }
