@@ -1,0 +1,20 @@
+{{- $mcps := index .ai "mcps" | default list -}}
+---
+description: Restricted to the current project; no outside directories, asks before shell, web and MCP use
+mode: primary
+color: "#e5a50a"
+permissions:
+  - { action: external_directory, resource: "*", effect: deny }
+  - { action: external_directory, resource: "/tmp/opencode/*", effect: allow }
+  - { action: shell, resource: "*", effect: ask }
+  - { action: subagent, resource: "*", effect: deny }
+  - { action: webfetch, resource: "*", effect: ask }
+  - { action: websearch, resource: "*", effect: ask }
+  - { action: opencode_list_mcp_resources, resource: "*", effect: ask }
+  - { action: opencode_read_mcp_resource, resource: "*", effect: ask }
+  - { action: "playwright_*", resource: "*", effect: ask }
+  - { action: "learn_microsoft_*", resource: "*", effect: ask }
+{{- range $mcps }}
+  - { action: {{ printf "%s_*" (regexReplaceAll "[^a-zA-Z0-9_]" .name "_") | quote }}, resource: "*", effect: ask }
+{{- end }}
+---
