@@ -1612,3 +1612,8 @@ check_update_stale
 {{- range .altproxy_commands }}
 alias {{ . }}="useproxy command {{ . }}"
 {{- end }}
+
+
+killport() {
+  fuser -k "$1/tcp"
+}
