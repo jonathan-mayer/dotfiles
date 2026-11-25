@@ -790,6 +790,19 @@ browser() {
     "$opener" "$1" >/dev/null 2>&1
 }
 
+# recursively discover git repos under the given dirs (or cwd), printing their
+# paths NUL-separated
+_git_find_repos() {
+  local search_dirs=("$@")
+  [[ ${#search_dirs[@]} -eq 0 ]] && search_dirs=(".")
+  local search_dir gitdir
+  for search_dir in "${search_dirs[@]}"; do
+    while IFS= read -r -d '' gitdir; do
+      printf '%s\0' "${gitdir%/.git}"
+    done < <(find -L "$search_dir" -name .git -type d -print0 2>/dev/null)
+  done
+}
+
 # Run a git function across multiple repos
 # Usage: _git_in_repos [-r] <func> [func_args...] [-- repo_paths...]
 #   -r            recursively discover git repos under given paths (or cwd)
@@ -838,13 +851,9 @@ _git_in_repos() {
   local repo_dirs=()
 
   if $recursive; then
-    local search_dirs=("${resolved_paths[@]}")
-    [[ ${#search_dirs[@]} -eq 0 ]] && search_dirs=(".")
-    for search_dir in "${search_dirs[@]}"; do
-      while IFS= read -r -d '' gitdir; do
-        repo_dirs+=("${gitdir%/.git}")
-      done < <(find -L "$search_dir" -name .git -type d -print0 2>/dev/null)
-    done
+    while IFS= read -r -d '' dir; do
+      repo_dirs+=("$dir")
+    done < <(_git_find_repos "${resolved_paths[@]}")
   else
     repo_dirs=("${resolved_paths[@]}")
   fi
@@ -1539,14 +1548,28 @@ _check_on_stale_branch_here() {
   git fetch -p >/dev/null 2>&1 # prune all no longer existing remote refs
   local stale
   stale="$(git for-each-ref --format '%(refname) track:%(upstream:track) upstream:%(upstream:short)' refs/heads \
-    | awk '$2 == "track:[gone]" || $3 == "upstream:" {sub("refs/heads/", "", $1); print $1}')"
+    | awk '$2 == "track:[gone]" {sub("refs/heads/", "", $1); print $1}')"
 
   if printf '%s\n' "$stale" | grep -Fxq -- "$current"; then
     if [ -n "$(git status --porcelain)" ]; then
-      echo "$(_git_check_scope)Current branch '$current' is stale (upstream gone or not set), but the working tree is dirty - run 'gitmain' yourself."
+      echo "$(_git_check_scope)Current branch '$current' is stale (upstream gone), but the working tree is dirty - run 'gitmain' yourself."
       return 0
     fi
-    echo "$(_git_check_scope)Current branch '$current' is stale (upstream gone or not set), checking out main."
+
+    # gitmain recurses into every repo underneath - confirm when that is a lot
+    local max_repos=10 repo_count
+    repo_count="$(_git_find_repos . | tr -cd '\0' | wc -c)"
+    if (( repo_count > max_repos )); then
+      if [[ ! -t 0 ]]; then
+        echo "$(_git_check_scope)Current branch '$current' is stale (upstream gone), but 'gitmain' would affect $repo_count repos - run it yourself."
+        return 0
+      fi
+      local reply
+      read -r -p "$(_git_check_scope)Current branch '$current' is stale (upstream gone). 'gitmain' would affect $repo_count repos. Continue? [y/N] " reply
+      [[ "$reply" =~ ^[Yy]([Ee][Ss])?$ ]] || return 0
+    fi
+
+    echo "$(_git_check_scope)Current branch '$current' is stale (upstream gone), checking out main."
     gitmain
   fi
 }
