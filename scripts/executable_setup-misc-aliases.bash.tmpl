@@ -192,34 +192,140 @@ _ctx() {
 }
 complete -F _ctx ctx
 
-inctx() {
-  local target_ctx="$1"
-  shift
+# Context groups: name -> space separated entries (contexts, globs or other groups)
+declare -gA _ctx_groups=(
+{{- if and (hasKey . "k8s") (hasKey .k8s "groups") }}
+{{- range .k8s.groups }}
+  [{{ .name | quote }}]={{ join " " .contexts | quote }}
+{{- end }}
+{{- end }}
+)
 
-  if [[ -z "$target_ctx" ]]; then
-    echo "usage: inctx <ctx> <command...>" >&2
+# Expand one spec entry (context, glob or group) into the caller's
+# _ctx_expand_out / _ctx_expand_seen; $2 is the group stack for cycle detection.
+_ctx_expand_part() {
+    local part="$1" stack="$2" entry name matched=0
+    local -a entries=()
+    [[ -n "$part" ]] || return 0
+
+    if [[ "$part" == *[\*\?\[]* ]]; then
+        for name in "${_ctx_expand_names[@]}"; do
+            [[ "$name" == none ]] && continue
+            # unquoted RHS: match as a glob pattern
+            if [[ "$name" == $part ]]; then
+                matched=1
+                if [[ -z "${_ctx_expand_seen[$name]+x}" ]]; then
+                    _ctx_expand_seen[$name]=1
+                    _ctx_expand_out+=("$name")
+                fi
+            fi
+        done
+        (( matched )) || echo "inctx: no contexts match '$part'" >&2
+        return 0
+    fi
+
+    if [[ -n "${_ctx_groups[$part]+x}" ]]; then
+        if [[ " $stack " == *" $part "* ]]; then
+            echo "inctx: group cycle detected at '$part' (${stack// / -> } -> $part)" >&2
+            return 0
+        fi
+        read -ra entries <<< "${_ctx_groups[$part]}"
+        for entry in "${entries[@]}"; do
+            _ctx_expand_part "$entry" "${stack:+$stack }$part"
+        done
+        return 0
+    fi
+
+    if [[ -z "${_ctx_expand_seen[$part]+x}" ]]; then
+        _ctx_expand_seen[$part]=1
+        _ctx_expand_out+=("$part")
+    fi
+}
+
+# Expand a comma separated spec of contexts, globs and groups into unique
+# context names (one per line, in order).
+_ctx_expand() {
+    local -a _ctx_expand_out=() _ctx_expand_names=() parts=()
+    local -A _ctx_expand_seen=()
+    local part
+    read -r -d '' -a _ctx_expand_names < <(_ctx_names)
+    IFS=',' read -ra parts <<< "$1"
+    for part in "${parts[@]}"; do
+        _ctx_expand_part "$part" ""
+    done
+    (( ${#_ctx_expand_out[@]} )) && printf '%s\n' "${_ctx_expand_out[@]}"
+}
+
+# Run a command in one or more contexts without touching the shell's context.
+# Usage: inctx <ctx>[,<ctx>...] <command...>
+#   <ctx> may be a context, a glob (quote it, e.g. 't26*') or a group
+inctx() {
+  local spec="$1"
+  if [[ -z "$spec" || $# -lt 2 ]]; then
+    echo "usage: inctx <ctx>[,<ctx>...] <command...>" >&2
+    echo "  <ctx> may be a context, a glob (quote it, e.g. 't26*') or a group" >&2
     return 2
   fi
+  shift
 
-  ctx "$target_ctx" || return 1
+  local -a contexts=()
+  mapfile -t contexts < <(_ctx_expand "$spec")
+  if (( ${#contexts[@]} == 0 )); then
+    echo "inctx: no contexts match '$spec'" >&2
+    return 1
+  fi
 
-  "$@"
-  local status=$?
+  local multi=0
+  (( ${#contexts[@]} > 1 )) && multi=1
 
-  ctx - || return 1
+  local c rc status=0
+  local -a failed=()
+  for c in "${contexts[@]}"; do
+    (( multi )) && echo "==> $c"
+    # subshell with a private kubeconfig copy: the shell's context and the
+    # saved state stay untouched, the copy is removed on exit
+    (
+      _ctx_local=0
+      _ctx_localize || exit 1
+      _ctx_switch "$c" >/dev/null || exit 1
+      "$@"
+    )
+    rc=$?
+    if (( rc != 0 )); then
+      failed+=("$c")
+      status=$rc
+    fi
+    (( multi )) && echo ""
+  done
 
+  if (( multi && ${#failed[@]} > 0 )); then
+    echo "inctx: failed in ${#failed[@]}/${#contexts[@]} contexts: ${failed[*]}" >&2
+  fi
   return $status
 }
 _inctx() {
   if [[ $COMP_CWORD -eq 1 ]]; then
-    COMPREPLY=(
-      $(compgen -W "$(_ctx_names)" -- "${COMP_WORDS[1]}")
-    )
+    local cur="${COMP_WORDS[1]}" prefix="" seg="${COMP_WORDS[1]}" words
+    if [[ "$cur" == *,* ]]; then
+      prefix="${cur%,*},"
+      seg="${cur##*,}"
+    fi
+    words="$(_ctx_names)"
+    words="${words#none } ${!_ctx_groups[*]}"
+    local -a cands=( $(compgen -W "$words" -- "$seg") )
+    COMPREPLY=( "${cands[@]/#/$prefix}" )
     return 0
   fi
 
-  compopt -o default -o bashdefault 2>/dev/null
-  COMPREPLY=()
+  # delegate to the wrapped command's completion (word 2 onwards)
+  if declare -F _comp_command_offset >/dev/null; then
+    _comp_command_offset 2
+  elif declare -F _command_offset >/dev/null; then
+    _command_offset 2
+  else
+    compopt -o default -o bashdefault 2>/dev/null
+    COMPREPLY=()
+  fi
   return 0
 }
 complete -F _inctx inctx

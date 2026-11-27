@@ -185,6 +185,11 @@
 {{- end -}}
 {{- end -}}
 
+{{- $k8s_groups := list -}}
+{{- if and (hasKey . "k8s") (hasKey .k8s "groups") -}}
+{{- $k8s_groups = .k8s.groups -}}
+{{- end -}}
+
 {{- $k9s_plugins := "" -}}
 {{- if and (hasKey . "k9s") (hasKey .k9s "plugins") -}}
 {{- $k9s_plugins = join "," .k9s.plugins -}}
@@ -280,6 +285,15 @@
     oidc_client_id = {{ .oidc_client_id | quote }}
     oidc_extra_scope = {{ .oidc_extra_scope | quote }}
     insecure = {{ .insecure }}
+{{- end }}
+{{- range $k8s_groups }}
+[[data.k8s.groups]]
+    name = {{ .name | quote }}
+    contexts = [
+{{- range .contexts }}
+      {{ . | quote }},
+{{- end }}
+    ]
 {{- end }}
 {{- range $mavenRepos }}
 [[data.maven.repos]]
